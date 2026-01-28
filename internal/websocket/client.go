@@ -79,7 +79,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, username, chatroomID stri
 // ReadPump pumps messages from the WebSocket connection to the hub
 func (c *Client) ReadPump() {
 	defer func() {
-		c.hub.unregister <- c
+		c.hub.Unregister(c)
 		c.conn.Close()
 
 		// Broadcast user left message

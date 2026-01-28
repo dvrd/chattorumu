@@ -81,7 +81,7 @@ func (h *WebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Reque
 	client := ws.NewClient(h.hub, conn, userID, user.Username, chatroomID, h.chatService, h.publisher)
 
 	// Register client with hub
-	h.hub.register <- client
+	h.hub.Register(client)
 
 	// Start client pumps
 	go client.WritePump()
