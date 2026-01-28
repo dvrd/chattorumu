@@ -1,0 +1,589 @@
+openapi: 3.0.3
+info:
+  title: Jobsity Chat API
+  description: Real-time chat application with stock quote bot
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Chatrooms
+    description: Chatroom operations
+  - name: Messages
+    description: Message operations
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              example1:
+                value:
+                  username: "john_doe"
+                  email: "john@example.com"
+                  password: "securepass123"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Username or email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user and create session
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              example1:
+                value:
+                  username: "john_doe"
+                  password: "securepass123"
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              description: Session cookie
+              schema:
+                type: string
+                example: session_id=abc123; HttpOnly; Secure; SameSite=Strict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user and destroy session
+      operationId: logoutUser
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chatrooms:
+    get:
+      tags:
+        - Chatrooms
+      summary: List available chatrooms
+      operationId: listChatrooms
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of chatrooms
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chatrooms:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chatroom'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Chatrooms
+      summary: Create a new chatroom
+      operationId: createChatroom
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChatroomRequest'
+      responses:
+        '201':
+          description: Chatroom created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chatroom'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chatrooms/{id}/messages:
+    get:
+      tags:
+        - Messages
+      summary: Get last 50 messages for a chatroom
+      operationId: getChatroomMessages
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Chatroom ID
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          description: Number of messages to retrieve
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a member of this chatroom
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Chatroom not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chatrooms/{id}/join:
+    post:
+      tags:
+        - Chatrooms
+      summary: Join a chatroom
+      operationId: joinChatroom
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Chatroom ID
+      responses:
+        '200':
+          description: Successfully joined chatroom
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Chatroom not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ws/chat/{chatroom_id}:
+    get:
+      tags:
+        - Messages
+      summary: WebSocket endpoint for real-time chat
+      operationId: connectWebSocket
+      description: |
+        WebSocket connection for real-time chat. Requires authentication via session cookie.
+
+        Client can send messages in two formats:
+        1. Regular message: {"type": "chat_message", "content": "Hello world"}
+        2. Stock command: {"type": "chat_message", "content": "/stock=AAPL.US"}
+
+        Server sends messages in format:
+        - chat_message: New message from user or bot
+        - user_joined: User joined the chatroom
+        - user_left: User left the chatroom
+        - error: Error occurred
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: chatroom_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Chatroom ID
+      responses:
+        '101':
+          description: WebSocket connection established
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not a member of this chatroom
+        '404':
+          description: Chatroom not found
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Basic health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /health/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check (includes dependencies)
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+                  database:
+                    type: string
+                    example: "connected"
+                  rabbitmq:
+                    type: string
+                    example: "connected"
+        '503':
+          description: Service not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "not_ready"
+                  database:
+                    type: string
+                  rabbitmq:
+                    type: string
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session_id
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: "john@example.com"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+          example: "securepass123"
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "john_doe"
+        password:
+          type: string
+          example: "securepass123"
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        username:
+          type: string
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-01-28T10:30:00Z"
+
+    CreateChatroomRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "General Chat"
+
+    Chatroom:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174001"
+        name:
+          type: string
+          example: "General Chat"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-01-28T10:30:00Z"
+        created_by:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174002"
+        chatroom_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174001"
+        user_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        username:
+          type: string
+          example: "john_doe"
+        content:
+          type: string
+          example: "Hello, world!"
+        is_bot:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-01-28T10:30:00Z"
+
+    WebSocketMessage:
+      oneOf:
+        - $ref: '#/components/schemas/ChatMessage'
+        - $ref: '#/components/schemas/UserJoined'
+        - $ref: '#/components/schemas/UserLeft'
+        - $ref: '#/components/schemas/ErrorMessage'
+
+    ChatMessage:
+      type: object
+      required:
+        - type
+        - id
+        - user_id
+        - username
+        - content
+        - is_bot
+        - created_at
+      properties:
+        type:
+          type: string
+          enum: [chat_message]
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        content:
+          type: string
+        is_bot:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    UserJoined:
+      type: object
+      required:
+        - type
+        - username
+      properties:
+        type:
+          type: string
+          enum: [user_joined]
+        username:
+          type: string
+
+    UserLeft:
+      type: object
+      required:
+        - type
+        - username
+      properties:
+        type:
+          type: string
+          enum: [user_left]
+        username:
+          type: string
+
+    ErrorMessage:
+      type: object
+      required:
+        - type
+        - message
+      properties:
+        type:
+          type: string
+          enum: [error]
+        message:
+          type: string
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation successful"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Invalid credentials"
+        code:
+          type: string
+          example: "INVALID_CREDENTIALS"
