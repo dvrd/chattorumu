@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jobsity Chat</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            padding: 20px;
+            border-bottom: 1px solid #e4e6eb;
+        }
+
+        .header h1 {
+            color: #1877f2;
+            font-size: 24px;
+        }
+
+        #auth-section {
+            padding: 20px;
+        }
+
+        #chat-section {
+            display: none;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #1877f2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #166fe5;
+        }
+
+        .chatrooms-list {
+            padding: 20px;
+            border-bottom: 1px solid #e4e6eb;
+        }
+
+        .chatroom-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f0f2f5;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .chatroom-item:hover {
+            background: #e4e6eb;
+        }
+
+        .chatroom-item.active {
+            background: #1877f2;
+            color: white;
+        }
+
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            border-bottom: 1px solid #e4e6eb;
+        }
+
+        .message {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f0f2f5;
+            border-radius: 8px;
+        }
+
+        .message.bot {
+            background: #e7f3ff;
+            border-left: 3px solid #1877f2;
+        }
+
+        .message .username {
+            font-weight: bold;
+            color: #1877f2;
+            margin-bottom: 5px;
+        }
+
+        .message .content {
+            color: #333;
+        }
+
+        .message .timestamp {
+            font-size: 11px;
+            color: #65676b;
+            margin-top: 5px;
+        }
+
+        .input-area {
+            padding: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        #messageInput {
+            flex: 1;
+        }
+
+        .error {
+            color: #d8000c;
+            background-color: #ffd2d2;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: #4f8a10;
+            background-color: #dff2bf;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .status {
+            padding: 10px 20px;
+            background: #f0f2f5;
+            font-size: 12px;
+            color: #65676b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Jobsity Chat</h1>
+        </div>
+
+        <!-- Authentication Section -->
+        <div id="auth-section">
+            <div class="form-group">
+                <label>Username:</label>
+                <input type="text" id="username" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="email" placeholder="Enter email">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="password" placeholder="Enter password">
+            </div>
+            <button onclick="register()">Register</button>
+            <button onclick="login()">Login</button>
+            <div id="auth-message"></div>
+        </div>
+
+        <!-- Chat Section -->
+        <div id="chat-section">
+            <div class="chatrooms-list">
+                <h3>Chatrooms</h3>
+                <div id="chatrooms"></div>
+                <div style="margin-top: 10px;">
+                    <input type="text" id="newChatroomName" placeholder="New chatroom name">
+                    <button onclick="createChatroom()">Create</button>
+                </div>
+            </div>
+
+            <div class="status" id="status">Not connected</div>
+
+            <div id="messages"></div>
+
+            <div class="input-area">
+                <input type="text" id="messageInput" placeholder="Type a message or /stock=AAPL.US" onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentChatroom = null;
+        let currentUser = null;
+
+        async function register() {
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/v1/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage('auth-message', 'Registration successful! Please login.', 'success');
+                } else {
+                    showMessage('auth-message', data.error || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                showMessage('auth-message', 'Registration failed: ' + error.message, 'error');
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentUser = data.user;
+                    document.getElementById('auth-section').style.display = 'none';
+                    document.getElementById('chat-section').style.display = 'block';
+                    loadChatrooms();
+                } else {
+                    showMessage('auth-message', data.error || 'Login failed', 'error');
+                }
+            } catch (error) {
+                showMessage('auth-message', 'Login failed: ' + error.message, 'error');
+            }
+        }
+
+        async function loadChatrooms() {
+            try {
+                const response = await fetch('/api/v1/chatrooms', {
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayChatrooms(data.chatrooms);
+                }
+            } catch (error) {
+                console.error('Failed to load chatrooms:', error);
+            }
+        }
+
+        function displayChatrooms(chatrooms) {
+            const container = document.getElementById('chatrooms');
+            container.innerHTML = '';
+
+            chatrooms.forEach(chatroom => {
+                const div = document.createElement('div');
+                div.className = 'chatroom-item';
+                div.textContent = chatroom.name;
+                div.onclick = () => joinChatroom(chatroom);
+                container.appendChild(div);
+            });
+        }
+
+        async function createChatroom() {
+            const name = document.getElementById('newChatroomName').value;
+            if (!name) return;
+
+            try {
+                const response = await fetch('/api/v1/chatrooms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ name })
+                });
+
+                if (response.ok) {
+                    document.getElementById('newChatroomName').value = '';
+                    loadChatrooms();
+                }
+            } catch (error) {
+                console.error('Failed to create chatroom:', error);
+            }
+        }
+
+        async function joinChatroom(chatroom) {
+            // Join the chatroom first
+            try {
+                await fetch(`/api/v1/chatrooms/${chatroom.id}/join`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            } catch (error) {
+                console.error('Failed to join chatroom:', error);
+            }
+
+            // Close existing WebSocket
+            if (ws) {
+                ws.close();
+            }
+
+            currentChatroom = chatroom;
+
+            // Mark as active
+            document.querySelectorAll('.chatroom-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Load messages
+            loadMessages(chatroom.id);
+
+            // Connect WebSocket
+            connectWebSocket(chatroom.id);
+        }
+
+        async function loadMessages(chatroomId) {
+            try {
+                const response = await fetch(`/api/v1/chatrooms/${chatroomId}/messages?limit=50`, {
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const container = document.getElementById('messages');
+                    container.innerHTML = '';
+                    data.messages.forEach(msg => displayMessage(msg));
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Failed to load messages:', error);
+            }
+        }
+
+        function connectWebSocket(chatroomId) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/chat/${chatroomId}`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                document.getElementById('status').textContent = `Connected to ${currentChatroom.name}`;
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+
+                if (msg.type === 'chat_message') {
+                    displayMessage(msg);
+                    const container = document.getElementById('messages');
+                    container.scrollTop = container.scrollHeight;
+                } else if (msg.type === 'user_joined') {
+                    console.log(`${msg.username} joined`);
+                } else if (msg.type === 'user_left') {
+                    console.log(`${msg.username} left`);
+                } else if (msg.type === 'error') {
+                    alert('Error: ' + msg.message);
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status').textContent = 'Disconnected';
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function displayMessage(msg) {
+            const container = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = msg.is_bot ? 'message bot' : 'message';
+
+            const username = document.createElement('div');
+            username.className = 'username';
+            username.textContent = msg.username;
+
+            const content = document.createElement('div');
+            content.className = 'content';
+            content.textContent = msg.content;
+
+            const timestamp = document.createElement('div');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = new Date(msg.created_at).toLocaleString();
+
+            div.appendChild(username);
+            div.appendChild(content);
+            div.appendChild(timestamp);
+
+            container.appendChild(div);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+
+            if (!content || !ws) return;
+
+            ws.send(JSON.stringify({
+                type: 'chat_message',
+                content: content
+            }));
+
+            input.value = '';
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.className = type;
+            element.textContent = message;
+        }
+    </script>
+</body>
+</html>
