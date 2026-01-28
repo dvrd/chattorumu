@@ -46,9 +46,9 @@ logs/
 # OS
 Thumbs.db
 
-# Build artifacts
-chat-server
-stock-bot
+# Build artifacts (binaries in root directory only)
+/chat-server
+/stock-bot
 
 # Temporary files
 tmp/
