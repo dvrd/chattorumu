@@ -1,4 +1,4 @@
--- Drop tables in reverse order (respecting foreign keys)
+-- Drop tables in reverse order (respecting foreign key constraints)
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS chatroom_members;
 DROP TABLE IF EXISTS messages;

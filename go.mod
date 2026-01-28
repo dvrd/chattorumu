@@ -1,4 +1,4 @@
-module github.com/jobsity/chat
+module jobsity-chat
 
 go 1.21
 
