@@ -134,7 +134,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   86400, // 24 hours
 		HttpOnly: true,
 		Secure:   h.isProduction, // Auto-enable Secure flag in production
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode, // Lax allows WebSocket upgrades
 	})
 
 	resp := LoginResponse{
@@ -199,7 +199,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   h.isProduction, // Match security settings
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
