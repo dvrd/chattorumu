@@ -1056,7 +1056,7 @@
             currentRoomName.textContent = currentRoom.name;
             currentRoomMembers.textContent = '';
             messagesContainer.innerHTML = '';
-            sendBtn.disabled = false;
+            sendBtn.disabled = true; // Keep disabled until WebSocket connects
 
             // Close mobile sidebar
             if (window.innerWidth <= 768) {
@@ -1085,6 +1085,7 @@
                 console.log('WebSocket connected');
                 updateConnectionStatus('connected');
                 reconnectAttempts = 0;
+                sendBtn.disabled = false; // Enable send button when connected
             };
 
             ws.onmessage = (event) => {
@@ -1095,11 +1096,13 @@
             ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
                 updateConnectionStatus('disconnected');
+                sendBtn.disabled = true; // Disable send button on error
             };
 
             ws.onclose = () => {
                 console.log('WebSocket disconnected');
                 updateConnectionStatus('disconnected');
+                sendBtn.disabled = true; // Disable send button when disconnected
 
                 // Attempt reconnection
                 if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
