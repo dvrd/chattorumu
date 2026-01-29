@@ -4,7 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Jobsity Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --color-bg-primary: #0a0a0f;
+            --color-bg-secondary: #14141f;
+            --color-bg-glass: rgba(255, 255, 255, 0.03);
+            --color-border-glass: rgba(255, 255, 255, 0.08);
+            --color-aurora-1: #667eea;
+            --color-aurora-2: #764ba2;
+            --color-aurora-3: #f093fb;
+            --color-aurora-4: #4facfe;
+            --color-accent-primary: #6366f1;
+            --color-accent-success: #10b981;
+            --color-accent-danger: #ef4444;
+            --color-text-primary: #ffffff;
+            --color-text-secondary: rgba(255, 255, 255, 0.7);
+            --color-text-tertiary: rgba(255, 255, 255, 0.4);
+            --font-base: 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -12,161 +33,330 @@
         }
 
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f2f5;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            font-family: var(--font-base);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
         }
 
+        /* Aurora Background */
+        .aurora-background {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            z-index: 0;
+            opacity: 0.6;
+            background:
+                radial-gradient(circle at 20% 50%, var(--color-aurora-1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, var(--color-aurora-2) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, var(--color-aurora-3) 0%, transparent 50%),
+                radial-gradient(circle at 60% 70%, var(--color-aurora-4) 0%, transparent 50%);
+            filter: blur(80px);
+            animation: aurora-shift 15s ease-in-out infinite;
+        }
+
+        @keyframes aurora-shift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-5%, -5%) rotate(10deg); }
+            66% { transform: translate(5%, 5%) rotate(-10deg); }
+        }
+
+        /* Glass Container */
         .container {
-            max-width: 400px;
+            position: relative;
+            z-index: 1;
+            max-width: 440px;
             width: 100%;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 30px;
+            background: var(--color-bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--color-border-glass);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow:
+                0 20px 40px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            animation: fade-in-up 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        @keyframes fade-in-up {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Header */
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, var(--color-aurora-1), var(--color-aurora-3));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
         }
 
         .header h1 {
-            color: #1877f2;
             font-size: 28px;
-            margin-bottom: 10px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
         }
 
         .header p {
-            color: #65676b;
-            font-size: 14px;
+            color: var(--color-text-secondary);
+            font-size: 15px;
+            font-weight: 500;
         }
 
+        /* Form */
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 24px;
         }
 
         label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #333;
+            margin-bottom: 8px;
+            font-weight: 600;
             font-size: 14px;
+            color: var(--color-text-secondary);
+            letter-spacing: 0.01em;
         }
 
         input {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
+            padding: 14px 16px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-glass);
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: var(--font-base);
+            color: var(--color-text-primary);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        input::placeholder {
+            color: var(--color-text-tertiary);
         }
 
         input:focus {
             outline: none;
-            border-color: #1877f2;
+            border-color: var(--color-accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
         input.error {
-            border-color: #d8000c;
+            border-color: var(--color-accent-danger);
         }
 
         .field-error {
-            color: #d8000c;
-            font-size: 12px;
-            margin-top: 5px;
+            color: var(--color-accent-danger);
+            font-size: 13px;
+            margin-top: 6px;
+            font-weight: 500;
             display: none;
+            animation: shake 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97);
         }
 
         .field-error.show {
             display: block;
         }
 
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+
+        /* Button */
         button {
             width: 100%;
-            padding: 12px 20px;
-            background-color: #1877f2;
-            color: white;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, var(--color-accent-primary), var(--color-aurora-2));
+            color: var(--color-text-primary);
             border: none;
-            border-radius: 4px;
+            border-radius: 12px;
             cursor: pointer;
             font-size: 16px;
-            font-weight: bold;
-            margin-top: 10px;
+            font-weight: 600;
+            font-family: var(--font-base);
+            margin-top: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
         }
 
         button:hover:not(:disabled) {
-            background-color: #166fe5;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+        }
+
+        button:hover:not(:disabled)::before {
+            left: 100%;
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
         }
 
         button:disabled {
-            background-color: #9cb4d8;
+            opacity: 0.6;
             cursor: not-allowed;
+            transform: none;
         }
 
-        .error {
-            color: #d8000c;
-            background-color: #ffd2d2;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
+        /* Error Alert */
+        .error-alert {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 24px;
             font-size: 14px;
+            font-weight: 500;
+            color: #fca5a5;
             display: none;
+            animation: fade-in-down 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .error.show {
+        .error-alert.show {
             display: block;
         }
 
+        @keyframes fade-in-down {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Register Link */
         .register-link {
             text-align: center;
-            margin-top: 20px;
-            font-size: 14px;
-            color: #65676b;
+            margin-top: 32px;
+            font-size: 15px;
+            color: var(--color-text-secondary);
         }
 
         .register-link a {
-            color: #1877f2;
+            color: var(--color-accent-primary);
             text-decoration: none;
-            font-weight: bold;
+            font-weight: 600;
+            transition: color 0.2s;
         }
 
         .register-link a:hover {
-            text-decoration: underline;
+            color: var(--color-aurora-3);
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container {
+                padding: 36px 24px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+        }
+
+        /* Reduced Motion */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
 <body>
+    <div class="aurora-background"></div>
+
     <div class="container">
         <div class="header">
-            <h1>🚀 Jobsity Chat</h1>
-            <p>Welcome back</p>
+            <div class="logo" role="img" aria-label="Jobsity Chat Logo">💬</div>
+            <h1>Welcome back</h1>
+            <p>Sign in to continue to Jobsity Chat</p>
         </div>
 
-        <div id="general-error" class="error"></div>
+        <div id="general-error" class="error-alert" role="alert"></div>
 
-        <form id="login-form">
+        <form id="login-form" novalidate>
             <div class="form-group">
-                <label for="username">Username:</label>
-                <input type="text" id="username" name="username" placeholder="Enter username">
-                <div id="username-error" class="field-error"></div>
+                <label for="username">Username</label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    placeholder="Enter your username"
+                    autocomplete="username"
+                    aria-describedby="username-error"
+                    required
+                >
+                <div id="username-error" class="field-error" aria-live="polite"></div>
             </div>
 
             <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" placeholder="Enter password">
-                <div id="password-error" class="field-error"></div>
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Enter your password"
+                    autocomplete="current-password"
+                    aria-describedby="password-error"
+                    required
+                >
+                <div id="password-error" class="field-error" aria-live="polite"></div>
             </div>
 
-            <button type="submit" id="login-btn">Login</button>
+            <button type="submit" id="login-btn">
+                Sign In
+            </button>
         </form>
 
         <div class="register-link">
-            Don't have an account? <a href="/register">Register here</a>
+            Don't have an account? <a href="/register">Create one</a>
         </div>
     </div>
 
@@ -194,6 +384,7 @@
             input.classList.add('error');
             errorDiv.textContent = message;
             errorDiv.classList.add('show');
+            input.setAttribute('aria-invalid', 'true');
         }
 
         // Clear field error
@@ -204,6 +395,7 @@
             input.classList.remove('error');
             errorDiv.textContent = '';
             errorDiv.classList.remove('show');
+            input.removeAttribute('aria-invalid');
         }
 
         // Clear all errors
@@ -270,7 +462,7 @@
 
             // Disable submit button
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Logging in...';
+            submitBtn.textContent = 'Signing in...';
 
             try {
                 const response = await fetch('/api/v1/auth/login', {
@@ -283,17 +475,27 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    window.location.href = '/';
+                    submitBtn.textContent = 'Success!';
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 300);
                 } else {
-                    showGeneralError(data.error || 'Login failed');
+                    showGeneralError(data.error || 'Login failed. Please check your credentials.');
                     submitBtn.disabled = false;
-                    submitBtn.textContent = 'Login';
+                    submitBtn.textContent = 'Sign In';
                 }
             } catch (error) {
-                showGeneralError('Login failed: ' + error.message);
+                showGeneralError('Connection error. Please try again.');
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Login';
+                submitBtn.textContent = 'Sign In';
             }
+        });
+
+        // Clear errors on input
+        ['username', 'password'].forEach(fieldId => {
+            document.getElementById(fieldId).addEventListener('input', () => {
+                clearFieldError(fieldId);
+            });
         });
     </script>
 </body>
