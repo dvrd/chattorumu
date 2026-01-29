@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -112,7 +112,7 @@ func (r *RabbitMQ) Setup() error {
 		return fmt.Errorf("failed to bind stock.commands queue: %w", err)
 	}
 
-	log.Println("RabbitMQ setup completed successfully")
+	slog.Info("rabbitmq setup completed successfully")
 	return nil
 }
 
@@ -147,7 +147,9 @@ func (r *RabbitMQ) PublishStockCommand(ctx context.Context, chatroomID, stockCod
 		return fmt.Errorf("failed to publish command: %w", err)
 	}
 
-	log.Printf("Published stock command: %s for chatroom %s", stockCode, chatroomID)
+	slog.Info("published stock command",
+		slog.String("stock_code", stockCode),
+		slog.String("chatroom_id", chatroomID))
 	return nil
 }
 
@@ -175,7 +177,9 @@ func (r *RabbitMQ) PublishStockResponse(ctx context.Context, response *StockResp
 		return fmt.Errorf("failed to publish response: %w", err)
 	}
 
-	log.Printf("Published stock response: %s - $%.2f", response.Symbol, response.Price)
+	slog.Info("published stock response",
+		slog.String("symbol", response.Symbol),
+		slog.Float64("price", response.Price))
 	return nil
 }
 
@@ -194,7 +198,8 @@ func (r *RabbitMQ) ConsumeStockCommands() (<-chan amqp.Delivery, error) {
 		return nil, fmt.Errorf("failed to register consumer: %w", err)
 	}
 
-	log.Println("Started consuming stock commands")
+	slog.Info("started consuming stock commands",
+		slog.String("queue", "stock.commands"))
 	return msgs, nil
 }
 
@@ -238,7 +243,9 @@ func (r *RabbitMQ) ConsumeStockResponses(chatroomID string) (<-chan amqp.Deliver
 		return nil, fmt.Errorf("failed to register consumer: %w", err)
 	}
 
-	log.Printf("Started consuming stock responses for chatroom %s", chatroomID)
+	slog.Info("started consuming stock responses",
+		slog.String("chatroom_id", chatroomID),
+		slog.String("queue", queueName))
 	return msgs, nil
 }
 

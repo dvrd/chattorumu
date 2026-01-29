@@ -3,7 +3,7 @@ package messaging
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 
 	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/service"
@@ -70,24 +70,27 @@ func (c *ResponseConsumer) Start(ctx context.Context) error {
 		return err
 	}
 
-	log.Println("Started consuming stock responses")
+	slog.Info("started consuming stock responses",
+		slog.String("queue", queue.Name),
+		slog.String("exchange", "chat.responses"))
 
 	// Process messages
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("Stopping response consumer")
+				slog.Info("stopping response consumer")
 				return
 			case msg, ok := <-msgs:
 				if !ok {
-					log.Println("Response consumer channel closed")
+					slog.Warn("response consumer channel closed")
 					return
 				}
 
 				var response StockResponse
 				if err := json.Unmarshal(msg.Body, &response); err != nil {
-					log.Printf("Error unmarshaling response: %v", err)
+					slog.Error("error unmarshaling response",
+						slog.String("error", err.Error()))
 					continue
 				}
 
@@ -116,7 +119,10 @@ func (c *ResponseConsumer) processResponse(ctx context.Context, response *StockR
 	}
 
 	if err := c.chatService.SendMessage(ctx, message); err != nil {
-		log.Printf("Error saving bot message: %v", err)
+		slog.Error("error saving bot message",
+			slog.String("error", err.Error()),
+			slog.String("chatroom_id", response.ChatroomID),
+			slog.String("content", content))
 		return
 	}
 
