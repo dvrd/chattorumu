@@ -1,5 +1,8 @@
 .PHONY: help build run test lint docker-build docker-run clean migrate-up migrate-down migrate-create
 
+# Database URL (can be overridden with environment variable)
+DATABASE_URL ?= postgres://jobsity:jobsity123@localhost:5432/jobsity_chat?sslmode=disable
+
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
@@ -68,12 +71,18 @@ docker-clean: ## Stop and remove Docker volumes
 
 migrate-up: ## Run database migrations up
 	@echo "Running migrations..."
-	@migrate -path migrations -database "$(DATABASE_URL)" up
+	@docker run --rm -v $(PWD)/migrations:/migrations --network host \
+		migrate/migrate:v4.17.0 \
+		-path=/migrations \
+		-database "$(DATABASE_URL)" up
 	@echo "Migrations complete!"
 
 migrate-down: ## Rollback last migration
 	@echo "Rolling back migration..."
-	@migrate -path migrations -database "$(DATABASE_URL)" down 1
+	@docker run --rm -v $(PWD)/migrations:/migrations --network host \
+		migrate/migrate:v4.17.0 \
+		-path=/migrations \
+		-database "$(DATABASE_URL)" down 1
 	@echo "Rollback complete!"
 
 migrate-create: ## Create new migration (use: make migrate-create NAME=create_users_table)
@@ -82,7 +91,9 @@ ifndef NAME
 	@exit 1
 endif
 	@echo "Creating migration: $(NAME)"
-	@migrate create -ext sql -dir migrations -seq $(NAME)
+	@docker run --rm -v $(PWD)/migrations:/migrations \
+		migrate/migrate:v4.17.0 \
+		create -ext sql -dir /migrations -seq $(NAME)
 	@echo "Migration files created in migrations/"
 
 migrate-force: ## Force migration version (use: make migrate-force VERSION=1)
@@ -90,7 +101,19 @@ ifndef VERSION
 	@echo "Error: VERSION is required. Usage: make migrate-force VERSION=1"
 	@exit 1
 endif
-	@migrate -path migrations -database "$(DATABASE_URL)" force $(VERSION)
+	@echo "Forcing migration to version $(VERSION)..."
+	@docker run --rm -v $(PWD)/migrations:/migrations --network host \
+		migrate/migrate:v4.17.0 \
+		-path=/migrations \
+		-database "$(DATABASE_URL)" force $(VERSION)
+	@echo "Migration forced to version $(VERSION)!"
+
+migrate-status: ## Check migration status
+	@echo "Checking migration status..."
+	@docker run --rm -v $(PWD)/migrations:/migrations --network host \
+		migrate/migrate:v4.17.0 \
+		-path=/migrations \
+		-database "$(DATABASE_URL)" version
 
 deps: ## Download dependencies
 	@echo "Downloading dependencies..."

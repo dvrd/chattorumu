@@ -36,8 +36,8 @@ COPY --from=builder /app/chat-server .
 # Copy migrations
 COPY --from=builder /app/migrations ./migrations
 
-# Copy static files (if any)
-COPY --from=builder /app/static ./static 2>/dev/null || true
+# Copy static files
+COPY --from=builder /app/static ./static
 
 # Change ownership
 RUN chown -R appuser:appgroup /app
