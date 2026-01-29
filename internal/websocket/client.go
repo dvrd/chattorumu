@@ -38,8 +38,10 @@ type Client struct {
 	chatroomID  string
 	chatService *service.ChatService
 	publisher   MessagePublisher
-	writeMu     sync.Mutex  // Protects writes to conn
-	closed      atomic.Bool // Tracks connection state
+	writeMu     sync.Mutex         // Protects writes to conn
+	closed      atomic.Bool        // Tracks connection state
+	ctx         context.Context    // Client context for operations
+	ctxCancel   context.CancelFunc // Cancel function for cleanup
 }
 
 // MessagePublisher defines the interface for publishing messages to RabbitMQ
@@ -68,6 +70,8 @@ type ServerMessage struct {
 // NewClient creates a new WebSocket client
 func NewClient(hub *Hub, conn *websocket.Conn, userID, username, chatroomID string,
 	chatService *service.ChatService, publisher MessagePublisher) *Client {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Client{
 		hub:         hub,
 		conn:        conn,
@@ -77,12 +81,15 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, username, chatroomID stri
 		chatroomID:  chatroomID,
 		chatService: chatService,
 		publisher:   publisher,
+		ctx:         ctx,
+		ctxCancel:   cancel,
 	}
 }
 
 // ReadPump pumps messages from the WebSocket connection to the hub
 func (c *Client) ReadPump() {
 	defer func() {
+		c.ctxCancel() // Cancel all ongoing operations
 		c.hub.Unregister(c)
 		c.closeConnection()
 
@@ -135,22 +142,26 @@ func (c *Client) ReadPump() {
 		// Check if command
 		if cmd, isCommand := service.ParseCommand(clientMsg.Content); isCommand {
 			// Publish stock command to RabbitMQ (don't save to database)
-			ctx := context.Background()
-			if err := c.publisher.PublishStockCommand(ctx, c.chatroomID, cmd.StockCode, c.username); err != nil {
-				slog.Error("error publishing stock command",
-					slog.String("error", err.Error()),
-					slog.String("stock_code", cmd.StockCode),
-					slog.String("user", c.username))
+			func() {
+				ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+				defer cancel()
 
-				// Send error message to client
-				errorMsg := ServerMessage{
-					Type:    "error",
-					Message: "Failed to process stock command",
+				if err := c.publisher.PublishStockCommand(ctx, c.chatroomID, cmd.StockCode, c.username); err != nil {
+					slog.Error("error publishing stock command",
+						slog.String("error", err.Error()),
+						slog.String("stock_code", cmd.StockCode),
+						slog.String("user", c.username))
+
+					// Send error message to client
+					errorMsg := ServerMessage{
+						Type:    "error",
+						Message: "Failed to process stock command",
+					}
+					if data, err := json.Marshal(errorMsg); err == nil {
+						c.send <- data
+					}
 				}
-				if data, err := json.Marshal(errorMsg); err == nil {
-					c.send <- data
-				}
-			}
+			}()
 			continue
 		}
 
@@ -163,14 +174,16 @@ func (c *Client) ReadPump() {
 			IsBot:      false,
 		}
 
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
 		if err := c.chatService.SendMessage(ctx, msg); err != nil {
+			cancel()
 			slog.Error("error saving message",
 				slog.String("error", err.Error()),
 				slog.String("user", c.username),
 				slog.String("chatroom_id", c.chatroomID))
 			continue
 		}
+		cancel()
 
 		// Broadcast to all clients in chatroom
 		serverMsg := ServerMessage{

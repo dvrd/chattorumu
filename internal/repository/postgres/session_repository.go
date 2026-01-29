@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"jobsity-chat/internal/domain"
@@ -25,11 +26,16 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 		VALUES ($1, $2, $3)
 		RETURNING id, created_at
 	`
-	return r.db.QueryRowContext(ctx, query,
+	err := r.db.QueryRowContext(ctx, query,
 		session.UserID,
 		session.Token,
 		session.ExpiresAt,
 	).Scan(&session.ID, &session.CreatedAt)
+
+	if err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+	return nil
 }
 
 // GetByToken retrieves a session by token
@@ -50,19 +56,28 @@ func (r *SessionRepository) GetByToken(ctx context.Context, token string) (*doma
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrSessionNotFound
 	}
-	return session, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session by token: %w", err)
+	}
+	return session, nil
 }
 
 // Delete removes a session by token
 func (r *SessionRepository) Delete(ctx context.Context, token string) error {
 	query := `DELETE FROM sessions WHERE token = $1`
 	_, err := r.db.ExecContext(ctx, query, token)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to delete session: %w", err)
+	}
+	return nil
 }
 
 // DeleteExpired removes all expired sessions
 func (r *SessionRepository) DeleteExpired(ctx context.Context) error {
 	query := `DELETE FROM sessions WHERE expires_at <= $1`
 	_, err := r.db.ExecContext(ctx, query, time.Now())
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to delete expired sessions: %w", err)
+	}
+	return nil
 }

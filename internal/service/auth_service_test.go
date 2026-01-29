@@ -182,8 +182,8 @@ func TestAuthService_Register_DuplicateUsername(t *testing.T) {
 		t.Errorf("Expected nil user, got: %+v", user)
 	}
 
-	if err.Error() != "username already exists" {
-		t.Errorf("Expected 'username already exists' error, got: %v", err)
+	if !errors.Is(err, domain.ErrUsernameExists) {
+		t.Errorf("Expected ErrUsernameExists, got: %v", err)
 	}
 }
 
@@ -217,8 +217,8 @@ func TestAuthService_Register_DuplicateEmail(t *testing.T) {
 		t.Errorf("Expected nil user, got: %+v", user)
 	}
 
-	if err.Error() != "email already exists" {
-		t.Errorf("Expected 'email already exists' error, got: %v", err)
+	if !errors.Is(err, domain.ErrEmailExists) {
+		t.Errorf("Expected ErrEmailExists, got: %v", err)
 	}
 }
 
@@ -284,8 +284,8 @@ func TestAuthService_Register_InvalidInput(t *testing.T) {
 				t.Errorf("Expected nil user, got: %+v", user)
 			}
 
-			if err.Error() != "invalid input" {
-				t.Errorf("Expected 'invalid input' error, got: %v", err)
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Errorf("Expected ErrInvalidInput, got: %v", err)
 			}
 		})
 	}
@@ -376,8 +376,8 @@ func TestAuthService_Login_InvalidCredentials(t *testing.T) {
 		t.Errorf("Expected nil user, got: %+v", user)
 	}
 
-	if err.Error() != "invalid credentials" {
-		t.Errorf("Expected 'invalid credentials' error, got: %v", err)
+	if !errors.Is(err, domain.ErrInvalidCredentials) {
+		t.Errorf("Expected ErrInvalidCredentials, got: %v", err)
 	}
 }
 
@@ -403,8 +403,8 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 		t.Errorf("Expected nil user, got: %+v", user)
 	}
 
-	if err.Error() != "invalid credentials" {
-		t.Errorf("Expected 'invalid credentials' error, got: %v", err)
+	if !errors.Is(err, domain.ErrInvalidCredentials) {
+		t.Errorf("Expected ErrInvalidCredentials, got: %v", err)
 	}
 }
 

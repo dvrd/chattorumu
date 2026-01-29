@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"jobsity-chat/internal/domain"
 )
@@ -24,12 +25,17 @@ func (r *MessageRepository) Create(ctx context.Context, message *domain.Message)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, created_at
 	`
-	return r.db.QueryRowContext(ctx, query,
+	err := r.db.QueryRowContext(ctx, query,
 		message.ChatroomID,
 		message.UserID,
 		message.Content,
 		message.IsBot,
 	).Scan(&message.ID, &message.CreatedAt)
+
+	if err != nil {
+		return fmt.Errorf("failed to create message: %w", err)
+	}
+	return nil
 }
 
 // GetByChatroom retrieves messages for a chatroom, ordered by timestamp (oldest first)
@@ -45,7 +51,7 @@ func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string
 
 	rows, err := r.db.QueryContext(ctx, query, chatroomID, limit)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query messages: %w", err)
 	}
 	defer rows.Close()
 
@@ -62,9 +68,13 @@ func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string
 			&msg.CreatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan message: %w", err)
 		}
 		messages = append(messages, msg)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating messages: %w", err)
 	}
 
 	// Reverse the slice to get oldest first
@@ -72,5 +82,5 @@ func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string
 		messages[i], messages[j] = messages[j], messages[i]
 	}
 
-	return messages, rows.Err()
+	return messages, nil
 }

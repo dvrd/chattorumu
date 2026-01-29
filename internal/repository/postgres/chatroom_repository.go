@@ -29,10 +29,15 @@ func (r *ChatroomRepository) Create(ctx context.Context, chatroom *domain.Chatro
 		VALUES ($1, $2)
 		RETURNING id, created_at
 	`
-	return r.db.QueryRowContext(ctx, query,
+	err := r.db.QueryRowContext(ctx, query,
 		chatroom.Name,
 		chatroom.CreatedBy,
 	).Scan(&chatroom.ID, &chatroom.CreatedAt)
+
+	if err != nil {
+		return fmt.Errorf("failed to create chatroom: %w", err)
+	}
+	return nil
 }
 
 // GetByID retrieves a chatroom by ID
@@ -52,7 +57,10 @@ func (r *ChatroomRepository) GetByID(ctx context.Context, id string) (*domain.Ch
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrChatroomNotFound
 	}
-	return chatroom, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chatroom by ID: %w", err)
+	}
+	return chatroom, nil
 }
 
 // List retrieves all chatrooms
@@ -65,7 +73,7 @@ func (r *ChatroomRepository) List(ctx context.Context) ([]*domain.Chatroom, erro
 
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query chatrooms: %w", err)
 	}
 	defer rows.Close()
 
@@ -79,12 +87,16 @@ func (r *ChatroomRepository) List(ctx context.Context) ([]*domain.Chatroom, erro
 			&chatroom.CreatedBy,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan chatroom: %w", err)
 		}
 		chatrooms = append(chatrooms, chatroom)
 	}
 
-	return chatrooms, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating chatrooms: %w", err)
+	}
+
+	return chatrooms, nil
 }
 
 // AddMember adds a user to a chatroom
@@ -95,7 +107,10 @@ func (r *ChatroomRepository) AddMember(ctx context.Context, chatroomID, userID s
 		ON CONFLICT (chatroom_id, user_id) DO NOTHING
 	`
 	_, err := r.db.ExecContext(ctx, query, chatroomID, userID)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to add member to chatroom: %w", err)
+	}
+	return nil
 }
 
 // IsMember checks if a user is a member of a chatroom
@@ -108,7 +123,10 @@ func (r *ChatroomRepository) IsMember(ctx context.Context, chatroomID, userID st
 	`
 	var exists bool
 	err := r.db.QueryRowContext(ctx, query, chatroomID, userID).Scan(&exists)
-	return exists, err
+	if err != nil {
+		return false, fmt.Errorf("failed to check chatroom membership: %w", err)
+	}
+	return exists, nil
 }
 
 // CreateWithMember atomically creates a chatroom and adds a member
