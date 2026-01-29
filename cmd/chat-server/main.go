@@ -160,6 +160,7 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(sessionRepo))
 
+			r.Get("/auth/me", authHandler.Me)
 			r.Post("/auth/logout", authHandler.Logout)
 			r.Get("/chatrooms", chatroomHandler.List)
 			r.Post("/chatrooms", chatroomHandler.Create)
