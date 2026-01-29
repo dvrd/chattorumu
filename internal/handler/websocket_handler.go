@@ -1,8 +1,9 @@
 package handler
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
+	"strings"
 
 	"jobsity-chat/internal/middleware"
 	"jobsity-chat/internal/service"
@@ -12,14 +13,31 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		// Allow all origins for development
-		// In production, check against allowed origins
-		return true
-	},
+// createUpgrader creates a WebSocket upgrader with origin checking
+func createUpgrader(allowedOrigins []string) websocket.Upgrader {
+	return websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				// No origin header (non-browser clients)
+				return true
+			}
+
+			// Check if origin is in allowed list
+			for _, allowed := range allowedOrigins {
+				if origin == allowed || allowed == "*" {
+					return true
+				}
+			}
+
+			slog.Warn("websocket origin rejected",
+				slog.String("origin", origin),
+				slog.String("remote_addr", r.RemoteAddr))
+			return false
+		},
+	}
 }
 
 // WebSocketHandler handles WebSocket connections
@@ -28,15 +46,23 @@ type WebSocketHandler struct {
 	chatService *service.ChatService
 	authService *service.AuthService
 	publisher   ws.MessagePublisher
+	upgrader    websocket.Upgrader
 }
 
-// NewWebSocketHandler creates a new WebSocket handler
-func NewWebSocketHandler(hub *ws.Hub, chatService *service.ChatService, authService *service.AuthService, publisher ws.MessagePublisher) *WebSocketHandler {
+// NewWebSocketHandler creates a new WebSocket handler with CORS-aware origin checking
+func NewWebSocketHandler(hub *ws.Hub, chatService *service.ChatService, authService *service.AuthService, publisher ws.MessagePublisher, allowedOrigins string) *WebSocketHandler {
+	// Parse allowed origins from comma-separated string
+	origins := strings.Split(allowedOrigins, ",")
+	for i := range origins {
+		origins[i] = strings.TrimSpace(origins[i])
+	}
+
 	return &WebSocketHandler{
 		hub:         hub,
 		chatService: chatService,
 		authService: authService,
 		publisher:   publisher,
+		upgrader:    createUpgrader(origins),
 	}
 }
 
@@ -71,9 +97,12 @@ func (h *WebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Upgrade connection
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
+		slog.Error("websocket upgrade error",
+			slog.String("error", err.Error()),
+			slog.String("user_id", userID),
+			slog.String("chatroom_id", chatroomID))
 		return
 	}
 

@@ -40,13 +40,18 @@ func (r *MessageRepository) Create(ctx context.Context, message *domain.Message)
 
 // GetByChatroom retrieves messages for a chatroom, ordered by timestamp (oldest first)
 func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string, limit int) ([]*domain.Message, error) {
+	// Use subquery to get the last N messages DESC, then order them ASC (oldest first)
 	query := `
-		SELECT m.id, m.chatroom_id, m.user_id, u.username, m.content, m.is_bot, m.created_at
-		FROM messages m
-		JOIN users u ON m.user_id = u.id
-		WHERE m.chatroom_id = $1
-		ORDER BY m.created_at DESC
-		LIMIT $2
+		SELECT id, chatroom_id, user_id, username, content, is_bot, created_at
+		FROM (
+			SELECT m.id, m.chatroom_id, m.user_id, u.username, m.content, m.is_bot, m.created_at
+			FROM messages m
+			JOIN users u ON m.user_id = u.id
+			WHERE m.chatroom_id = $1
+			ORDER BY m.created_at DESC
+			LIMIT $2
+		) AS recent_messages
+		ORDER BY created_at ASC
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, chatroomID, limit)
@@ -75,11 +80,6 @@ func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating messages: %w", err)
-	}
-
-	// Reverse the slice to get oldest first
-	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
-		messages[i], messages[j] = messages[j], messages[i]
 	}
 
 	return messages, nil

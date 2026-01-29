@@ -3,8 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/middleware"
@@ -14,12 +15,18 @@ import (
 // AuthHandler handles authentication endpoints
 type AuthHandler struct {
 	authService *service.AuthService
+	isProduction bool
 }
 
 // NewAuthHandler creates a new authentication handler
 func NewAuthHandler(authService *service.AuthService) *AuthHandler {
+	// Detect production environment
+	env := os.Getenv("ENVIRONMENT")
+	isProduction := env == "production" || env == "prod"
+
 	return &AuthHandler{
 		authService: authService,
+		isProduction: isProduction,
 	}
 }
 
@@ -75,7 +82,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		default:
 			status = http.StatusInternalServerError
 			message = "Internal server error"
-			log.Printf("Register error: %v", err) // Log full error server-side
+			slog.Error("register error", slog.String("error", err.Error()))
 		}
 
 		http.Error(w, `{"error":"`+message+`"}`, status)
@@ -112,21 +119,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		} else {
 			status = http.StatusInternalServerError
 			message = "Internal server error"
-			log.Printf("Login error: %v", err) // Log full error server-side
+			slog.Error("login error", slog.String("error", err.Error()))
 		}
 
 		http.Error(w, `{"error":"`+message+`"}`, status)
 		return
 	}
 
-	// Set session cookie
+	// Set session cookie with environment-aware security settings
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
 		Value:    session.Token,
 		Path:     "/",
 		MaxAge:   86400, // 24 hours
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   h.isProduction, // Auto-enable Secure flag in production
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -158,14 +165,14 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clear cookie
+	// Clear cookie with environment-aware security settings
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   h.isProduction, // Match security settings
 		SameSite: http.SameSiteStrictMode,
 	})
 
