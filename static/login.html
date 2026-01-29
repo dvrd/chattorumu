@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Jobsity Chat</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #1877f2;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #65676b;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #1877f2;
+        }
+
+        input.error {
+            border-color: #d8000c;
+        }
+
+        .field-error {
+            color: #d8000c;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .field-error.show {
+            display: block;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px 20px;
+            background-color: #1877f2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #166fe5;
+        }
+
+        button:disabled {
+            background-color: #9cb4d8;
+            cursor: not-allowed;
+        }
+
+        .error {
+            color: #d8000c;
+            background-color: #ffd2d2;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #65676b;
+        }
+
+        .register-link a {
+            color: #1877f2;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Jobsity Chat</h1>
+            <p>Welcome back</p>
+        </div>
+
+        <div id="general-error" class="error"></div>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Enter username">
+                <div id="username-error" class="field-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter password">
+                <div id="password-error" class="field-error"></div>
+            </div>
+
+            <button type="submit" id="login-btn">Login</button>
+        </form>
+
+        <div class="register-link">
+            Don't have an account? <a href="/register">Register here</a>
+        </div>
+    </div>
+
+    <script>
+        // Validation functions
+        function validateRequired(value, fieldName) {
+            if (!value || value.trim() === '') {
+                return `${fieldName} is required`;
+            }
+            return null;
+        }
+
+        function validateMinLength(value, min, fieldName) {
+            if (value.length < min) {
+                return `${fieldName} must be at least ${min} characters`;
+            }
+            return null;
+        }
+
+        // Show field error
+        function showFieldError(fieldId, message) {
+            const input = document.getElementById(fieldId);
+            const errorDiv = document.getElementById(`${fieldId}-error`);
+
+            input.classList.add('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        // Clear field error
+        function clearFieldError(fieldId) {
+            const input = document.getElementById(fieldId);
+            const errorDiv = document.getElementById(`${fieldId}-error`);
+
+            input.classList.remove('error');
+            errorDiv.textContent = '';
+            errorDiv.classList.remove('show');
+        }
+
+        // Clear all errors
+        function clearAllErrors() {
+            ['username', 'password'].forEach(clearFieldError);
+            document.getElementById('general-error').classList.remove('show');
+        }
+
+        // Show general error
+        function showGeneralError(message) {
+            const errorDiv = document.getElementById('general-error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        // Validate form
+        function validateForm() {
+            clearAllErrors();
+            let isValid = true;
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // Validate username
+            let error = validateRequired(username, 'Username');
+            if (error) {
+                showFieldError('username', error);
+                isValid = false;
+            } else {
+                error = validateMinLength(username, 3, 'Username');
+                if (error) {
+                    showFieldError('username', error);
+                    isValid = false;
+                }
+            }
+
+            // Validate password
+            error = validateRequired(password, 'Password');
+            if (error) {
+                showFieldError('password', error);
+                isValid = false;
+            } else {
+                error = validateMinLength(password, 6, 'Password');
+                if (error) {
+                    showFieldError('password', error);
+                    isValid = false;
+                }
+            }
+
+            return isValid;
+        }
+
+        // Handle form submission
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!validateForm()) {
+                return;
+            }
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const submitBtn = document.getElementById('login-btn');
+
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+
+            try {
+                const response = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    showGeneralError(data.error || 'Login failed');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Login';
+                }
+            } catch (error) {
+                showGeneralError('Login failed: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
+            }
+        });
+    </script>
+</body>
+</html>

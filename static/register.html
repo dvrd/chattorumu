@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Jobsity Chat</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #1877f2;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #65676b;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #1877f2;
+        }
+
+        input.error {
+            border-color: #d8000c;
+        }
+
+        .field-error {
+            color: #d8000c;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .field-error.show {
+            display: block;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px 20px;
+            background-color: #1877f2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #166fe5;
+        }
+
+        button:disabled {
+            background-color: #9cb4d8;
+            cursor: not-allowed;
+        }
+
+        .error {
+            color: #d8000c;
+            background-color: #ffd2d2;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .success {
+            color: #4f8a10;
+            background-color: #dff2bf;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+            display: none;
+        }
+
+        .success.show {
+            display: block;
+        }
+
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #65676b;
+        }
+
+        .login-link a {
+            color: #1877f2;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Jobsity Chat</h1>
+            <p>Create your account</p>
+        </div>
+
+        <div id="general-error" class="error"></div>
+        <div id="success-message" class="success"></div>
+
+        <form id="register-form">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Enter username">
+                <div id="username-error" class="field-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" placeholder="Enter email">
+                <div id="email-error" class="field-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter password">
+                <div id="password-error" class="field-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm-password">Confirm Password:</label>
+                <input type="password" id="confirm-password" name="confirm-password" placeholder="Confirm password">
+                <div id="confirm-password-error" class="field-error"></div>
+            </div>
+
+            <button type="submit" id="register-btn">Register</button>
+        </form>
+
+        <div class="login-link">
+            Already have an account? <a href="/login">Login here</a>
+        </div>
+    </div>
+
+    <script>
+        // Validation functions
+        function validateRequired(value, fieldName) {
+            if (!value || value.trim() === '') {
+                return `${fieldName} is required`;
+            }
+            return null;
+        }
+
+        function validateMinLength(value, min, fieldName) {
+            if (value.length < min) {
+                return `${fieldName} must be at least ${min} characters`;
+            }
+            return null;
+        }
+
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return 'Please enter a valid email address';
+            }
+            return null;
+        }
+
+        function validateUsername(username) {
+            const usernameRegex = /^[a-zA-Z0-9_]+$/;
+            if (!usernameRegex.test(username)) {
+                return 'Username can only contain letters, numbers, and underscores';
+            }
+            return null;
+        }
+
+        function validatePasswordMatch(password, confirmPassword) {
+            if (password !== confirmPassword) {
+                return 'Passwords do not match';
+            }
+            return null;
+        }
+
+        // Show field error
+        function showFieldError(fieldId, message) {
+            const input = document.getElementById(fieldId);
+            const errorDiv = document.getElementById(`${fieldId}-error`);
+
+            input.classList.add('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        // Clear field error
+        function clearFieldError(fieldId) {
+            const input = document.getElementById(fieldId);
+            const errorDiv = document.getElementById(`${fieldId}-error`);
+
+            input.classList.remove('error');
+            errorDiv.textContent = '';
+            errorDiv.classList.remove('show');
+        }
+
+        // Clear all errors
+        function clearAllErrors() {
+            ['username', 'email', 'password', 'confirm-password'].forEach(clearFieldError);
+            document.getElementById('general-error').classList.remove('show');
+        }
+
+        // Show general error
+        function showGeneralError(message) {
+            const errorDiv = document.getElementById('general-error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success-message');
+            successDiv.textContent = message;
+            successDiv.classList.add('show');
+        }
+
+        // Validate form
+        function validateForm() {
+            clearAllErrors();
+            let isValid = true;
+
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            // Validate username
+            let error = validateRequired(username, 'Username');
+            if (error) {
+                showFieldError('username', error);
+                isValid = false;
+            } else {
+                error = validateMinLength(username, 3, 'Username');
+                if (error) {
+                    showFieldError('username', error);
+                    isValid = false;
+                } else {
+                    error = validateUsername(username);
+                    if (error) {
+                        showFieldError('username', error);
+                        isValid = false;
+                    }
+                }
+            }
+
+            // Validate email
+            error = validateRequired(email, 'Email');
+            if (error) {
+                showFieldError('email', error);
+                isValid = false;
+            } else {
+                error = validateEmail(email);
+                if (error) {
+                    showFieldError('email', error);
+                    isValid = false;
+                }
+            }
+
+            // Validate password
+            error = validateRequired(password, 'Password');
+            if (error) {
+                showFieldError('password', error);
+                isValid = false;
+            } else {
+                error = validateMinLength(password, 6, 'Password');
+                if (error) {
+                    showFieldError('password', error);
+                    isValid = false;
+                }
+            }
+
+            // Validate confirm password
+            error = validateRequired(confirmPassword, 'Confirm Password');
+            if (error) {
+                showFieldError('confirm-password', error);
+                isValid = false;
+            } else {
+                error = validatePasswordMatch(password, confirmPassword);
+                if (error) {
+                    showFieldError('confirm-password', error);
+                    isValid = false;
+                }
+            }
+
+            return isValid;
+        }
+
+        // Handle form submission
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!validateForm()) {
+                return;
+            }
+
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const submitBtn = document.getElementById('register-btn');
+
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Registering...';
+
+            try {
+                const response = await fetch('/api/v1/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess('Registration successful! Redirecting to login...');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 2000);
+                } else {
+                    showGeneralError(data.error || 'Registration failed');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Register';
+                }
+            } catch (error) {
+                showGeneralError('Registration failed: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Register';
+            }
+        });
+    </script>
+</body>
+</html>
