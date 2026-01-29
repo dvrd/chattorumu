@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"jobsity-chat/internal/domain"
 )
@@ -10,11 +11,15 @@ import (
 // ChatroomRepository implements domain.ChatroomRepository for PostgreSQL
 type ChatroomRepository struct {
 	db *sql.DB
+	tm *TxManager
 }
 
 // NewChatroomRepository creates a new PostgreSQL chatroom repository
 func NewChatroomRepository(db *sql.DB) *ChatroomRepository {
-	return &ChatroomRepository{db: db}
+	return &ChatroomRepository{
+		db: db,
+		tm: NewTxManager(db),
+	}
 }
 
 // Create inserts a new chatroom into the database
@@ -104,4 +109,32 @@ func (r *ChatroomRepository) IsMember(ctx context.Context, chatroomID, userID st
 	var exists bool
 	err := r.db.QueryRowContext(ctx, query, chatroomID, userID).Scan(&exists)
 	return exists, err
+}
+
+// CreateWithMember atomically creates a chatroom and adds a member
+// This prevents race conditions where a chatroom exists without any members
+func (r *ChatroomRepository) CreateWithMember(ctx context.Context, chatroom *domain.Chatroom, userID string) error {
+	return r.tm.WithTx(ctx, func(tx *sql.Tx) error {
+		// Create chatroom
+		query := `
+			INSERT INTO chatrooms (name, created_by)
+			VALUES ($1, $2)
+			RETURNING id, created_at
+		`
+		if err := tx.QueryRowContext(ctx, query, chatroom.Name, chatroom.CreatedBy).
+			Scan(&chatroom.ID, &chatroom.CreatedAt); err != nil {
+			return fmt.Errorf("failed to insert chatroom: %w", err)
+		}
+
+		// Add member (atomic with chatroom creation)
+		memberQuery := `
+			INSERT INTO chatroom_members (chatroom_id, user_id)
+			VALUES ($1, $2)
+		`
+		if _, err := tx.ExecContext(ctx, memberQuery, chatroom.ID, userID); err != nil {
+			return fmt.Errorf("failed to add member: %w", err)
+		}
+
+		return nil
+	})
 }

@@ -47,13 +47,14 @@ func (m *mockMessageRepository) GetByChatroom(ctx context.Context, chatroomID st
 }
 
 type mockChatroomRepository struct {
-	chatrooms      map[string]*domain.Chatroom
-	members        map[string]map[string]bool // chatroomID -> userID -> bool
-	create         func(ctx context.Context, chatroom *domain.Chatroom) error
-	getByID        func(ctx context.Context, id string) (*domain.Chatroom, error)
-	list           func(ctx context.Context) ([]*domain.Chatroom, error)
-	addMember      func(ctx context.Context, chatroomID, userID string) error
-	isMember       func(ctx context.Context, chatroomID, userID string) (bool, error)
+	chatrooms        map[string]*domain.Chatroom
+	members          map[string]map[string]bool // chatroomID -> userID -> bool
+	create           func(ctx context.Context, chatroom *domain.Chatroom) error
+	createWithMember func(ctx context.Context, chatroom *domain.Chatroom, userID string) error
+	getByID          func(ctx context.Context, id string) (*domain.Chatroom, error)
+	list             func(ctx context.Context) ([]*domain.Chatroom, error)
+	addMember        func(ctx context.Context, chatroomID, userID string) error
+	isMember         func(ctx context.Context, chatroomID, userID string) (bool, error)
 }
 
 func (m *mockChatroomRepository) Create(ctx context.Context, chatroom *domain.Chatroom) error {
@@ -67,6 +68,17 @@ func (m *mockChatroomRepository) Create(ctx context.Context, chatroom *domain.Ch
 	chatroom.CreatedAt = time.Now()
 	m.chatrooms[chatroom.ID] = chatroom
 	return nil
+}
+
+func (m *mockChatroomRepository) CreateWithMember(ctx context.Context, chatroom *domain.Chatroom, userID string) error {
+	if m.createWithMember != nil {
+		return m.createWithMember(ctx, chatroom, userID)
+	}
+	// Simulate atomic operation
+	if err := m.Create(ctx, chatroom); err != nil {
+		return err
+	}
+	return m.AddMember(ctx, chatroom.ID, userID)
 }
 
 func (m *mockChatroomRepository) GetByID(ctx context.Context, id string) (*domain.Chatroom, error) {

@@ -55,7 +55,15 @@ func main() {
 
 	// Initialize WebSocket hub
 	hub := websocket.NewHub()
-	go hub.Run()
+
+	// Start hub with context
+	hubCtx, hubCancel := context.WithCancel(context.Background())
+	defer hubCancel()
+	go func() {
+		if err := hub.Run(hubCtx); err != nil && err != context.Canceled {
+			log.Printf("Hub error: %v", err)
+		}
+	}()
 	log.Println("WebSocket Hub started")
 
 	// Get or create bot user
@@ -120,9 +128,15 @@ func main() {
 
 	// API routes
 	r.Route("/api/v1", func(r chi.Router) {
-		// Public auth routes
-		r.Post("/auth/register", authHandler.Register)
-		r.Post("/auth/login", authHandler.Login)
+		// Rate limit auth routes to prevent brute force attacks
+		authLimiter := middleware.NewRateLimiter(5, 10) // 5 req/sec, burst 10
+
+		// Public auth routes with rate limiting
+		r.Group(func(r chi.Router) {
+			r.Use(authLimiter.Middleware())
+			r.Post("/auth/register", authHandler.Register)
+			r.Post("/auth/login", authHandler.Login)
+		})
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
@@ -170,11 +184,20 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
+	// Stop accepting new HTTP connections
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}
 
-	cancel() // Cancel background tasks
+	// Cancel background tasks (response consumer)
+	cancel()
+
+	// Stop WebSocket hub
+	hubCancel()
+
+	// Give hub time to close connections gracefully
+	time.Sleep(100 * time.Millisecond)
+
 	log.Println("Server stopped gracefully")
 }
 

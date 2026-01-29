@@ -59,12 +59,8 @@ func (s *ChatService) CreateChatroom(ctx context.Context, name, createdBy string
 		CreatedBy: createdBy,
 	}
 
-	if err := s.chatroomRepo.Create(ctx, chatroom); err != nil {
-		return nil, err
-	}
-
-	// Automatically add creator as member
-	if err := s.chatroomRepo.AddMember(ctx, chatroom.ID, createdBy); err != nil {
+	// Use atomic transaction to create chatroom and add creator as member
+	if err := s.chatroomRepo.CreateWithMember(ctx, chatroom, createdBy); err != nil {
 		return nil, err
 	}
 

@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"log"
 )
 
@@ -23,6 +24,9 @@ type Hub struct {
 
 	// Unregister client
 	unregister chan *Client
+
+	// Shutdown signal
+	done chan struct{}
 }
 
 // NewHub creates a new Hub
@@ -32,13 +36,20 @@ func NewHub() *Hub {
 		broadcast:  make(chan *BroadcastMessage, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		done:       make(chan struct{}),
 	}
 }
 
 // Run starts the hub's main loop
-func (h *Hub) Run() {
+func (h *Hub) Run(ctx context.Context) error {
+	defer h.shutdown()
+
 	for {
 		select {
+		case <-ctx.Done():
+			log.Println("Hub shutting down gracefully")
+			return ctx.Err()
+
 		case client := <-h.register:
 			// Create chatroom map if it doesn't exist
 			if h.clients[client.chatroomID] == nil {
@@ -48,18 +59,7 @@ func (h *Hub) Run() {
 			log.Printf("Client registered: user=%s, chatroom=%s", client.username, client.chatroomID)
 
 		case client := <-h.unregister:
-			if clients, ok := h.clients[client.chatroomID]; ok {
-				if _, ok := clients[client]; ok {
-					delete(clients, client)
-					close(client.send)
-					log.Printf("Client unregistered: user=%s, chatroom=%s", client.username, client.chatroomID)
-
-					// Clean up empty chatroom
-					if len(clients) == 0 {
-						delete(h.clients, client.chatroomID)
-					}
-				}
-			}
+			h.unregisterClient(client)
 
 		case message := <-h.broadcast:
 			// Send to all clients in the chatroom
@@ -69,13 +69,53 @@ func (h *Hub) Run() {
 					case client.send <- message.Message:
 					default:
 						// Client's send buffer is full, close connection
-						close(client.send)
+						h.closeClientSend(client)
 						delete(clients, client)
 					}
 				}
 			}
 		}
 	}
+}
+
+// unregisterClient safely removes a client from the hub
+func (h *Hub) unregisterClient(client *Client) {
+	if clients, ok := h.clients[client.chatroomID]; ok {
+		if _, ok := clients[client]; ok {
+			delete(clients, client)
+			h.closeClientSend(client)
+			log.Printf("Client unregistered: user=%s, chatroom=%s", client.username, client.chatroomID)
+
+			// Clean up empty chatroom
+			if len(clients) == 0 {
+				delete(h.clients, client.chatroomID)
+			}
+		}
+	}
+}
+
+// closeClientSend safely closes a client's send channel
+func (h *Hub) closeClientSend(client *Client) {
+	select {
+	case <-client.send:
+		// Channel already closed
+	default:
+		close(client.send)
+	}
+}
+
+// shutdown performs graceful cleanup of all connections
+func (h *Hub) shutdown() {
+	close(h.done)
+
+	for chatroomID, clients := range h.clients {
+		for client := range clients {
+			h.closeClientSend(client)
+			log.Printf("Closed client connection: user=%s, chatroom=%s", client.username, chatroomID)
+		}
+	}
+
+	log.Println("Hub shutdown complete")
 }
 
 // Broadcast sends a message to all clients in a chatroom

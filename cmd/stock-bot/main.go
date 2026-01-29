@@ -50,11 +50,24 @@ func main() {
 
 	// Process messages
 	go func() {
-		for msg := range msgs {
-			if err := processCommand(ctx, msg.Body, stooqClient, rmq); err != nil {
-				log.Printf("Error processing command: %v", err)
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("Stopping message consumer")
+				return
+			case msg, ok := <-msgs:
+				if !ok {
+					log.Println("Message channel closed")
+					return
+				}
+				// Use context with timeout for processing
+				msgCtx, msgCancel := context.WithTimeout(ctx, 30*time.Second)
+				if err := processCommand(msgCtx, msg.Body, stooqClient, rmq); err != nil {
+					log.Printf("Error processing command: %v", err)
+				}
+				msgCancel()
+				msg.Ack(false)
 			}
-			msg.Ack(false)
 		}
 	}()
 

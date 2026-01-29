@@ -2,8 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 
+	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/middleware"
 	"jobsity-chat/internal/service"
 )
@@ -56,14 +59,26 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.authService.Register(r.Context(), req.Username, req.Email, req.Password)
 	if err != nil {
-		status := http.StatusInternalServerError
-		switch err.Error() {
-		case "invalid input":
+		var status int
+		var message string
+
+		switch {
+		case errors.Is(err, domain.ErrInvalidInput):
 			status = http.StatusBadRequest
-		case "username already exists", "email already exists":
+			message = "Invalid input"
+		case errors.Is(err, domain.ErrUsernameExists):
 			status = http.StatusConflict
+			message = "Username already exists"
+		case errors.Is(err, domain.ErrEmailExists):
+			status = http.StatusConflict
+			message = "Email already exists"
+		default:
+			status = http.StatusInternalServerError
+			message = "Internal server error"
+			log.Printf("Register error: %v", err) // Log full error server-side
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, status)
+
+		http.Error(w, `{"error":"`+message+`"}`, status)
 		return
 	}
 
@@ -88,7 +103,19 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	session, user, err := h.authService.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusUnauthorized)
+		var status int
+		var message string
+
+		if errors.Is(err, domain.ErrInvalidCredentials) {
+			status = http.StatusUnauthorized
+			message = "Invalid credentials"
+		} else {
+			status = http.StatusInternalServerError
+			message = "Internal server error"
+			log.Printf("Login error: %v", err) // Log full error server-side
+		}
+
+		http.Error(w, `{"error":"`+message+`"}`, status)
 		return
 	}
 

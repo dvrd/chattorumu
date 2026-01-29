@@ -22,6 +22,7 @@ type Chatroom struct {
 // ChatroomRepository defines the interface for chatroom data access
 type ChatroomRepository interface {
 	Create(ctx context.Context, chatroom *Chatroom) error
+	CreateWithMember(ctx context.Context, chatroom *Chatroom, userID string) error
 	GetByID(ctx context.Context, id string) (*Chatroom, error)
 	List(ctx context.Context) ([]*Chatroom, error)
 	AddMember(ctx context.Context, chatroomID, userID string) error

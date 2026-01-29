@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"jobsity-chat/internal/domain"
@@ -36,6 +38,8 @@ type Client struct {
 	chatroomID  string
 	chatService *service.ChatService
 	publisher   MessagePublisher
+	writeMu     sync.Mutex  // Protects writes to conn
+	closed      atomic.Bool // Tracks connection state
 }
 
 // MessagePublisher defines the interface for publishing messages to RabbitMQ
@@ -80,7 +84,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, username, chatroomID stri
 func (c *Client) ReadPump() {
 	defer func() {
 		c.hub.Unregister(c)
-		c.conn.Close()
+		c.closeConnection()
 
 		// Broadcast user left message
 		leftMsg := ServerMessage{
@@ -180,28 +184,48 @@ func (c *Client) WritePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		c.closeConnection()
 	}()
 
 	for {
 		select {
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// Hub closed the channel
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				c.writeMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
-			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+			if err := c.writeMessage(websocket.TextMessage, message); err != nil {
 				return
 			}
 
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if err := c.writeMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
 		}
+	}
+}
+
+// writeMessage writes a message to the WebSocket connection in a thread-safe manner
+func (c *Client) writeMessage(messageType int, data []byte) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
+	if c.closed.Load() {
+		return websocket.ErrCloseSent
+	}
+
+	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+	return c.conn.WriteMessage(messageType, data)
+}
+
+// closeConnection safely closes the WebSocket connection
+func (c *Client) closeConnection() {
+	if c.closed.CompareAndSwap(false, true) {
+		c.writeMu.Lock()
+		c.conn.Close()
+		c.writeMu.Unlock()
 	}
 }

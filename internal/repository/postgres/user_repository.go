@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"jobsity-chat/internal/domain"
 )
@@ -31,14 +32,14 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	).Scan(&user.ID, &user.CreatedAt)
 
 	if err != nil {
-		// Check for unique constraint violations
-		if err.Error() == "pq: duplicate key value violates unique constraint \"users_username_key\"" {
+		// Check for unique constraint violations using typed errors
+		if IsUniqueViolation(err, "users_username_key") {
 			return domain.ErrUsernameExists
 		}
-		if err.Error() == "pq: duplicate key value violates unique constraint \"users_email_key\"" {
+		if IsUniqueViolation(err, "users_email_key") {
 			return domain.ErrEmailExists
 		}
-		return err
+		return fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return nil
@@ -62,7 +63,10 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrUserNotFound
 	}
-	return user, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by ID: %w", err)
+	}
+	return user, nil
 }
 
 // GetByUsername retrieves a user by username
@@ -83,7 +87,10 @@ func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*d
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrUserNotFound
 	}
-	return user, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by username: %w", err)
+	}
+	return user, nil
 }
 
 // GetByEmail retrieves a user by email
@@ -104,5 +111,8 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 	if err == sql.ErrNoRows {
 		return nil, domain.ErrUserNotFound
 	}
-	return user, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+	return user, nil
 }

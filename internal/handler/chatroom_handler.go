@@ -88,11 +88,23 @@ func (h *ChatroomHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get limit from query parameter
-	limit := 50
+	// Get limit from query parameter with bounds checking
+	const (
+		minLimit     = 1
+		maxLimit     = 100
+		defaultLimit = 50
+	)
+
+	limit := defaultLimit
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil {
-			limit = parsedLimit
+			if parsedLimit < minLimit {
+				limit = minLimit
+			} else if parsedLimit > maxLimit {
+				limit = maxLimit
+			} else {
+				limit = parsedLimit
+			}
 		}
 	}
 
