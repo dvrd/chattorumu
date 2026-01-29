@@ -104,9 +104,21 @@ func (c *Client) ReadPump() {
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		slog.Warn("failed to set read deadline",
+			slog.String("error", err.Error()),
+			slog.String("user", c.username),
+			slog.String("chatroom", c.chatroomID))
+		return
+	}
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+			slog.Warn("failed to set read deadline in pong handler",
+				slog.String("error", err.Error()),
+				slog.String("user", c.username),
+				slog.String("chatroom", c.chatroomID))
+			return err
+		}
 		return nil
 	})
 
@@ -215,7 +227,7 @@ func (c *Client) WritePump() {
 		case message, ok := <-c.send:
 			if !ok {
 				// Hub closed the channel
-				c.writeMessage(websocket.CloseMessage, []byte{})
+				_ = c.writeMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
@@ -240,7 +252,13 @@ func (c *Client) writeMessage(messageType int, data []byte) error {
 		return websocket.ErrCloseSent
 	}
 
-	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+	if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+		slog.Warn("failed to set write deadline",
+			slog.String("error", err.Error()),
+			slog.String("user", c.username),
+			slog.String("chatroom", c.chatroomID))
+		return err
+	}
 	return c.conn.WriteMessage(messageType, data)
 }
 
