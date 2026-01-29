@@ -49,7 +49,7 @@ services:
       DATABASE_URL: postgres://jobsity:jobsity123@postgres:5432/jobsity_chat?sslmode=disable
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       SESSION_SECRET: dev-secret-change-in-production
-      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:8080
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:8080,http://host.docker.internal:8080
       LOG_LEVEL: info
       LOG_FORMAT: json
     ports:
