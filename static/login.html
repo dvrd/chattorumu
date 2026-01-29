@@ -475,6 +475,11 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    // Save session token for WebSocket authentication
+                    if (data.session_token) {
+                        sessionStorage.setItem('ws_token', data.session_token);
+                    }
+
                     submitBtn.textContent = 'Success!';
                     setTimeout(() => {
                         window.location.href = '/';

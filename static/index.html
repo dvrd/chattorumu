@@ -1067,16 +1067,11 @@
             connectWebSocket(roomId);
         }
 
-        // Get session token from cookies
+        // Get session token from sessionStorage (saved during login)
+        // Note: We use sessionStorage instead of cookies because the session_id
+        // cookie is HttpOnly and cannot be accessed by JavaScript
         function getSessionToken() {
-            const cookies = document.cookie.split(';');
-            for (let cookie of cookies) {
-                const [name, value] = cookie.trim().split('=');
-                if (name === 'session_id') {
-                    return value;
-                }
-            }
-            return null;
+            return sessionStorage.getItem('ws_token');
         }
 
         // WebSocket connection
@@ -1271,6 +1266,8 @@
                     credentials: 'include'
                 });
             } finally {
+                // Clear WebSocket token from sessionStorage
+                sessionStorage.removeItem('ws_token');
                 window.location.href = '/login';
             }
         }

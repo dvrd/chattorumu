@@ -52,8 +52,9 @@ type LoginRequest struct {
 
 // LoginResponse represents login response
 type LoginResponse struct {
-	Success bool             `json:"success"`
-	User    RegisterResponse `json:"user"`
+	Success      bool             `json:"success"`
+	User         RegisterResponse `json:"user"`
+	SessionToken string           `json:"session_token"` // Token for WebSocket authentication
 }
 
 // Register handles user registration
@@ -144,6 +145,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			Username: user.Username,
 			Email:    user.Email,
 		},
+		SessionToken: session.Token, // Include token for WebSocket connections
 	}
 
 	w.Header().Set("Content-Type", "application/json")
