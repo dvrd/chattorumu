@@ -92,16 +92,31 @@ func (h *WebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Reque
 	}
 
 	if sessionToken == "" {
+		slog.Warn("websocket auth failed: no token",
+			slog.String("remote_addr", r.RemoteAddr),
+			slog.String("chatroom_id", chi.URLParam(r, "chatroom_id")))
 		http.Error(w, `{"error":"No session token provided"}`, http.StatusUnauthorized)
 		return
 	}
 
+	slog.Debug("websocket auth attempt",
+		slog.String("token", sessionToken[:8]+"..."), // Log first 8 chars only
+		slog.String("chatroom_id", chi.URLParam(r, "chatroom_id")))
+
 	// Validate session
 	session, err := h.sessionRepo.GetByToken(r.Context(), sessionToken)
 	if err != nil {
+		slog.Warn("websocket auth failed: invalid session",
+			slog.String("error", err.Error()),
+			slog.String("token_prefix", sessionToken[:8]+"..."),
+			slog.String("remote_addr", r.RemoteAddr))
 		http.Error(w, `{"error":"Invalid or expired session"}`, http.StatusUnauthorized)
 		return
 	}
+
+	slog.Info("websocket auth successful",
+		slog.String("user_id", session.UserID),
+		slog.String("chatroom_id", chi.URLParam(r, "chatroom_id")))
 
 	userID := session.UserID
 

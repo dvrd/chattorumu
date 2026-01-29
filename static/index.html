@@ -1037,7 +1037,7 @@
         }
 
         // Join chatroom
-        function joinRoom(roomId, roomName) {
+        async function joinRoom(roomId, roomName) {
             currentRoom = {
                 id: roomId,
                 name: roomName
@@ -1061,6 +1061,17 @@
             // Close mobile sidebar
             if (window.innerWidth <= 768) {
                 sidebar.classList.add('mobile-hidden');
+            }
+
+            // Join chatroom on backend (if not already a member)
+            try {
+                await fetch(`/api/v1/chatrooms/${roomId}/join`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                // Ignore errors - user might already be a member
+            } catch (error) {
+                console.log('Join room request failed (might already be member):', error);
             }
 
             // Connect WebSocket
