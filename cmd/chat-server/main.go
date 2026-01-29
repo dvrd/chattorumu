@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,35 +13,50 @@ import (
 	"jobsity-chat/internal/handler"
 	"jobsity-chat/internal/messaging"
 	"jobsity-chat/internal/middleware"
+	"jobsity-chat/internal/observability"
 	"jobsity-chat/internal/repository/postgres"
 	"jobsity-chat/internal/service"
 	"jobsity-chat/internal/websocket"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
-	log.Println("Starting Chat Server...")
-
-	// Load configuration
+	// Load configuration first
 	cfg := config.Load()
+
+	// Initialize structured logging
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	logFormat := os.Getenv("LOG_FORMAT")
+	if logFormat == "" {
+		logFormat = "json"
+	}
+	observability.InitLogger(logLevel, logFormat)
+
+	slog.Info("starting chat server")
 
 	// Connect to database
 	db, err := config.NewPostgresConnection(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		slog.Error("failed to connect to database", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 	defer db.Close()
-	log.Println("Connected to PostgreSQL")
+	slog.Info("connected to postgresql")
 
 	// Connect to RabbitMQ
 	rmq, err := messaging.NewRabbitMQ(cfg.RabbitMQURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 	defer rmq.Close()
-	log.Println("Connected to RabbitMQ")
+	slog.Info("connected to rabbitmq")
 
 	// Initialize repositories
 	userRepo := postgres.NewUserRepository(db)
@@ -61,10 +76,10 @@ func main() {
 	defer hubCancel()
 	go func() {
 		if err := hub.Run(hubCtx); err != nil && err != context.Canceled {
-			log.Printf("Hub error: %v", err)
+			slog.Error("hub error", slog.String("error", err.Error()))
 		}
 	}()
-	log.Println("WebSocket Hub started")
+	slog.Info("websocket hub started")
 
 	// Get or create bot user
 	botUserID := ensureBotUser(authService)
@@ -75,9 +90,10 @@ func main() {
 
 	responseConsumer := messaging.NewResponseConsumer(rmq, hub, chatService, botUserID)
 	if err := responseConsumer.Start(ctx); err != nil {
-		log.Fatalf("Failed to start response consumer: %v", err)
+		slog.Error("failed to start response consumer", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
-	log.Println("Response consumer started")
+	slog.Info("response consumer started")
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -93,10 +109,12 @@ func main() {
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
 	r.Use(middleware.CORS(middleware.ParseOrigins(cfg.AllowedOrigins)))
+	r.Use(middleware.Metrics()) // Prometheus metrics
 
-	// Health checks
+	// Health checks and metrics
 	r.Get("/health", handler.Health)
-	r.Get("/health/ready", handler.Ready(db))
+	r.Get("/health/ready", handler.Ready(db, rmq))
+	r.Handle("/metrics", promhttp.Handler())
 
 	// Clean URL routes for auth pages
 	r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
@@ -167,9 +185,10 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		log.Printf("Chat Server listening on port %s", cfg.Port)
+		slog.Info("chat server listening", slog.String("port", cfg.Port))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+			slog.Error("server error", slog.String("error", err.Error()))
+			os.Exit(1)
 		}
 	}()
 
@@ -178,7 +197,7 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 
-	log.Println("Shutting down server...")
+	slog.Info("shutting down server")
 
 	// Shutdown with timeout
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -186,7 +205,7 @@ func main() {
 
 	// Stop accepting new HTTP connections
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Server shutdown error: %v", err)
+		slog.Error("server shutdown error", slog.String("error", err.Error()))
 	}
 
 	// Cancel background tasks (response consumer)
@@ -198,7 +217,7 @@ func main() {
 	// Give hub time to close connections gracefully
 	time.Sleep(100 * time.Millisecond)
 
-	log.Println("Server stopped gracefully")
+	slog.Info("server stopped gracefully")
 }
 
 // ensureBotUser creates a bot user if it doesn't exist
@@ -208,17 +227,19 @@ func ensureBotUser(authService *service.AuthService) string {
 	// Try to get existing bot user
 	botUser, err := authService.GetUserByID(ctx, "00000000-0000-0000-0000-000000000001")
 	if err == nil {
-		log.Printf("Bot user already exists: %s", botUser.Username)
+		slog.Info("bot user already exists", slog.String("username", botUser.Username))
 		return botUser.ID
 	}
 
 	// Create bot user
 	botUser, err = authService.Register(ctx, "StockBot", "bot@jobsity.com", "bot-password-not-used")
 	if err != nil {
-		log.Printf("Warning: Failed to create bot user: %v", err)
+		slog.Warn("failed to create bot user", slog.String("error", err.Error()))
 		return "00000000-0000-0000-0000-000000000001" // Fallback to hardcoded ID
 	}
 
-	log.Printf("Created bot user: %s (ID: %s)", botUser.Username, botUser.ID)
+	slog.Info("created bot user",
+		slog.String("username", botUser.Username),
+		slog.String("id", botUser.ID))
 	return botUser.ID
 }

@@ -2,7 +2,9 @@ package websocket
 
 import (
 	"context"
-	"log"
+	"log/slog"
+
+	"jobsity-chat/internal/observability"
 )
 
 // BroadcastMessage represents a message to be broadcast
@@ -47,7 +49,7 @@ func (h *Hub) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Hub shutting down gracefully")
+			slog.Info("hub shutting down gracefully")
 			return ctx.Err()
 
 		case client := <-h.register:
@@ -56,7 +58,10 @@ func (h *Hub) Run(ctx context.Context) error {
 				h.clients[client.chatroomID] = make(map[*Client]bool)
 			}
 			h.clients[client.chatroomID][client] = true
-			log.Printf("Client registered: user=%s, chatroom=%s", client.username, client.chatroomID)
+			observability.WebSocketConnectionsActive.WithLabelValues(client.chatroomID).Inc()
+			slog.Info("client registered",
+				slog.String("user", client.username),
+				slog.String("chatroom_id", client.chatroomID))
 
 		case client := <-h.unregister:
 			h.unregisterClient(client)
@@ -67,6 +72,7 @@ func (h *Hub) Run(ctx context.Context) error {
 				for client := range clients {
 					select {
 					case client.send <- message.Message:
+						observability.WebSocketMessagesSent.WithLabelValues(message.ChatroomID, "broadcast").Inc()
 					default:
 						// Client's send buffer is full, close connection
 						h.closeClientSend(client)
@@ -84,7 +90,10 @@ func (h *Hub) unregisterClient(client *Client) {
 		if _, ok := clients[client]; ok {
 			delete(clients, client)
 			h.closeClientSend(client)
-			log.Printf("Client unregistered: user=%s, chatroom=%s", client.username, client.chatroomID)
+			observability.WebSocketConnectionsActive.WithLabelValues(client.chatroomID).Dec()
+			slog.Info("client unregistered",
+				slog.String("user", client.username),
+				slog.String("chatroom_id", client.chatroomID))
 
 			// Clean up empty chatroom
 			if len(clients) == 0 {
@@ -111,11 +120,13 @@ func (h *Hub) shutdown() {
 	for chatroomID, clients := range h.clients {
 		for client := range clients {
 			h.closeClientSend(client)
-			log.Printf("Closed client connection: user=%s, chatroom=%s", client.username, chatroomID)
+			slog.Info("closed client connection",
+				slog.String("user", client.username),
+				slog.String("chatroom_id", chatroomID))
 		}
 	}
 
-	log.Println("Hub shutdown complete")
+	slog.Info("hub shutdown complete")
 }
 
 // Broadcast sends a message to all clients in a chatroom

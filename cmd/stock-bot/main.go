@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,23 +12,36 @@ import (
 
 	"jobsity-chat/internal/config"
 	"jobsity-chat/internal/messaging"
+	"jobsity-chat/internal/observability"
 	"jobsity-chat/internal/stock"
 )
 
 func main() {
-	log.Println("Starting Stock Bot...")
-
-	// Load configuration
+	// Load configuration first
 	cfg := config.Load()
+
+	// Initialize structured logging
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	logFormat := os.Getenv("LOG_FORMAT")
+	if logFormat == "" {
+		logFormat = "json"
+	}
+	observability.InitLogger(logLevel, logFormat)
+
+	slog.Info("starting stock bot")
 
 	// Connect to RabbitMQ
 	rmq, err := messaging.NewRabbitMQ(cfg.RabbitMQURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 	defer rmq.Close()
 
-	log.Println("Connected to RabbitMQ")
+	slog.Info("connected to rabbitmq")
 
 	// Initialize Stooq client
 	stooqClient := stock.NewStooqClient(cfg.StooqAPIURL)
@@ -36,10 +49,11 @@ func main() {
 	// Start consuming messages
 	msgs, err := rmq.ConsumeStockCommands()
 	if err != nil {
-		log.Fatalf("Failed to start consuming: %v", err)
+		slog.Error("failed to start consuming", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
-	log.Println("Stock Bot is ready to process commands")
+	slog.Info("stock bot is ready to process commands")
 
 	// Setup graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -53,17 +67,17 @@ func main() {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("Stopping message consumer")
+				slog.Info("stopping message consumer")
 				return
 			case msg, ok := <-msgs:
 				if !ok {
-					log.Println("Message channel closed")
+					slog.Info("message channel closed")
 					return
 				}
 				// Use context with timeout for processing
 				msgCtx, msgCancel := context.WithTimeout(ctx, 30*time.Second)
 				if err := processCommand(msgCtx, msg.Body, stooqClient, rmq); err != nil {
-					log.Printf("Error processing command: %v", err)
+					slog.Error("error processing command", slog.String("error", err.Error()))
 				}
 				msgCancel()
 				msg.Ack(false)
@@ -73,10 +87,10 @@ func main() {
 
 	// Wait for shutdown signal
 	<-sigChan
-	log.Println("Shutting down Stock Bot...")
+	slog.Info("shutting down stock bot")
 	cancel()
 	time.Sleep(1 * time.Second)
-	log.Println("Stock Bot stopped")
+	slog.Info("stock bot stopped")
 }
 
 func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqClient, rmq *messaging.RabbitMQ) error {
@@ -86,8 +100,10 @@ func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqCl
 		return fmt.Errorf("failed to unmarshal command: %w", err)
 	}
 
-	log.Printf("Processing stock command: %s (chatroom: %s, requested by: %s)",
-		cmd.StockCode, cmd.ChatroomID, cmd.RequestedBy)
+	slog.Info("processing stock command",
+		slog.String("stock_code", cmd.StockCode),
+		slog.String("chatroom_id", cmd.ChatroomID),
+		slog.String("requested_by", cmd.RequestedBy))
 
 	// Fetch quote from Stooq
 	quote, err := stooqClient.GetQuote(ctx, cmd.StockCode)
@@ -100,7 +116,9 @@ func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqCl
 
 	if err != nil {
 		// Handle error
-		log.Printf("Error fetching quote for %s: %v", cmd.StockCode, err)
+		slog.Error("error fetching quote",
+			slog.String("stock_code", cmd.StockCode),
+			slog.String("error", err.Error()))
 		response.Error = fmt.Sprintf("Failed to fetch quote for %s", cmd.StockCode)
 
 		if err == stock.ErrStockNotFound {
@@ -111,7 +129,9 @@ func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqCl
 		response.Symbol = quote.Symbol
 		response.Price = quote.Price
 		response.FormattedMessage = fmt.Sprintf("%s quote is $%.2f per share", quote.Symbol, quote.Price)
-		log.Printf("Successfully fetched quote: %s - $%.2f", quote.Symbol, quote.Price)
+		slog.Info("successfully fetched quote",
+			slog.String("symbol", quote.Symbol),
+			slog.Float64("price", quote.Price))
 	}
 
 	// Publish response

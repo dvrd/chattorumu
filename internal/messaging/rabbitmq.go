@@ -242,6 +242,11 @@ func (r *RabbitMQ) ConsumeStockResponses(chatroomID string) (<-chan amqp.Deliver
 	return msgs, nil
 }
 
+// IsClosed returns true if the connection is closed
+func (r *RabbitMQ) IsClosed() bool {
+	return r.conn == nil || r.conn.IsClosed()
+}
+
 // Close closes the RabbitMQ connection
 func (r *RabbitMQ) Close() error {
 	if r.channel != nil {

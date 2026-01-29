@@ -3,7 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -116,7 +116,9 @@ func (c *Client) ReadPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
+				slog.Warn("websocket error",
+					slog.String("error", err.Error()),
+					slog.String("user", c.username))
 			}
 			break
 		}
@@ -124,7 +126,9 @@ func (c *Client) ReadPump() {
 		// Parse message
 		var clientMsg ClientMessage
 		if err := json.Unmarshal(message, &clientMsg); err != nil {
-			log.Printf("Invalid message format: %v", err)
+			slog.Warn("invalid message format",
+				slog.String("error", err.Error()),
+				slog.String("user", c.username))
 			continue
 		}
 
@@ -133,7 +137,10 @@ func (c *Client) ReadPump() {
 			// Publish stock command to RabbitMQ (don't save to database)
 			ctx := context.Background()
 			if err := c.publisher.PublishStockCommand(ctx, c.chatroomID, cmd.StockCode, c.username); err != nil {
-				log.Printf("Error publishing stock command: %v", err)
+				slog.Error("error publishing stock command",
+					slog.String("error", err.Error()),
+					slog.String("stock_code", cmd.StockCode),
+					slog.String("user", c.username))
 
 				// Send error message to client
 				errorMsg := ServerMessage{
@@ -158,7 +165,10 @@ func (c *Client) ReadPump() {
 
 		ctx := context.Background()
 		if err := c.chatService.SendMessage(ctx, msg); err != nil {
-			log.Printf("Error saving message: %v", err)
+			slog.Error("error saving message",
+				slog.String("error", err.Error()),
+				slog.String("user", c.username),
+				slog.String("chatroom_id", c.chatroomID))
 			continue
 		}
 
