@@ -1067,6 +1067,18 @@
             connectWebSocket(roomId);
         }
 
+        // Get session token from cookies
+        function getSessionToken() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'session_id') {
+                    return value;
+                }
+            }
+            return null;
+        }
+
         // WebSocket connection
         function connectWebSocket(roomId) {
             // Close existing connection
@@ -1077,7 +1089,13 @@
             updateConnectionStatus('connecting');
 
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws/chat/${roomId}`;
+            let wsUrl = `${protocol}//${window.location.host}/ws/chat/${roomId}`;
+
+            // Add session token as query parameter for authentication
+            const sessionToken = getSessionToken();
+            if (sessionToken) {
+                wsUrl += `?token=${sessionToken}`;
+            }
 
             ws = new WebSocket(wsUrl);
 
