@@ -98,7 +98,7 @@ func main() {
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
 	chatroomHandler := handler.NewChatroomHandler(chatService)
-	wsHandler := handler.NewWebSocketHandler(hub, chatService, authService, rmq, cfg.AllowedOrigins)
+	wsHandler := handler.NewWebSocketHandler(hub, chatService, authService, rmq, sessionRepo, cfg.AllowedOrigins)
 
 	// Setup router
 	r := chi.NewRouter()
@@ -169,11 +169,8 @@ func main() {
 		})
 	})
 
-	// WebSocket routes (protected)
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.Auth(sessionRepo))
-		r.Get("/ws/chat/{chatroom_id}", wsHandler.HandleConnection)
-	})
+	// WebSocket routes (auth handled internally to support query param tokens)
+	r.Get("/ws/chat/{chatroom_id}", wsHandler.HandleConnection)
 
 	// Setup HTTP server
 	srv := &http.Server{

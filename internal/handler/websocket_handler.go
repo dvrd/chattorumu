@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"jobsity-chat/internal/middleware"
+	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/service"
 	ws "jobsity-chat/internal/websocket"
 
@@ -47,10 +47,11 @@ type WebSocketHandler struct {
 	authService *service.AuthService
 	publisher   ws.MessagePublisher
 	upgrader    websocket.Upgrader
+	sessionRepo domain.SessionRepository
 }
 
 // NewWebSocketHandler creates a new WebSocket handler with CORS-aware origin checking
-func NewWebSocketHandler(hub *ws.Hub, chatService *service.ChatService, authService *service.AuthService, publisher ws.MessagePublisher, allowedOrigins string) *WebSocketHandler {
+func NewWebSocketHandler(hub *ws.Hub, chatService *service.ChatService, authService *service.AuthService, publisher ws.MessagePublisher, sessionRepo domain.SessionRepository, allowedOrigins string) *WebSocketHandler {
 	// Parse allowed origins from comma-separated string
 	origins := strings.Split(allowedOrigins, ",")
 	for i := range origins {
@@ -62,18 +63,47 @@ func NewWebSocketHandler(hub *ws.Hub, chatService *service.ChatService, authServ
 		chatService: chatService,
 		authService: authService,
 		publisher:   publisher,
+		sessionRepo: sessionRepo,
 		upgrader:    createUpgrader(origins),
 	}
 }
 
 // HandleConnection handles WebSocket upgrade and connection
 func (h *WebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context (set by auth middleware)
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		http.Error(w, `{"error":"Not authenticated"}`, http.StatusUnauthorized)
+	// Try to get session token from multiple sources
+	var sessionToken string
+
+	// 1. Try cookie first (standard browser behavior)
+	if cookie, err := r.Cookie("session_id"); err == nil {
+		sessionToken = cookie.Value
+	}
+
+	// 2. Fallback to query parameter (for browsers that don't send cookies with WebSocket)
+	if sessionToken == "" {
+		sessionToken = r.URL.Query().Get("token")
+	}
+
+	// 3. Check Authorization header as last resort
+	if sessionToken == "" {
+		auth := r.Header.Get("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			sessionToken = strings.TrimPrefix(auth, "Bearer ")
+		}
+	}
+
+	if sessionToken == "" {
+		http.Error(w, `{"error":"No session token provided"}`, http.StatusUnauthorized)
 		return
 	}
+
+	// Validate session
+	session, err := h.sessionRepo.GetByToken(r.Context(), sessionToken)
+	if err != nil {
+		http.Error(w, `{"error":"Invalid or expired session"}`, http.StatusUnauthorized)
+		return
+	}
+
+	userID := session.UserID
 
 	// Get chatroom ID from URL
 	chatroomID := chi.URLParam(r, "chatroom_id")
