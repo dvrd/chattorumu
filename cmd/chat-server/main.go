@@ -90,8 +90,33 @@ func main() {
 	r.Get("/health", handler.Health)
 	r.Get("/health/ready", handler.Ready(db))
 
-	// Serve static files
-	r.Handle("/*", http.FileServer(http.Dir("./static")))
+	// Clean URL routes for auth pages
+	r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/login.html")
+	})
+	r.Get("/register", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/register.html")
+	})
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/index.html")
+	})
+
+	// Redirect legacy .html URLs to clean URLs
+	r.Get("/login.html", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/login", http.StatusMovedPermanently)
+	})
+	r.Get("/register.html", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/register", http.StatusMovedPermanently)
+	})
+	r.Get("/index.html", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/", http.StatusMovedPermanently)
+	})
+
+	// Block all other routes - no static file server
+	// This prevents access to any files we're not explicitly serving
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Not Found", http.StatusNotFound)
+	})
 
 	// API routes
 	r.Route("/api/v1", func(r chi.Router) {
