@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 
 	"jobsity-chat/internal/observability"
@@ -27,6 +28,9 @@ type Hub struct {
 	// Unregister client
 	unregister chan *Client
 
+	// User count update channel
+	userCountUpdate chan struct{}
+
 	// Shutdown signal
 	done chan struct{}
 }
@@ -34,11 +38,12 @@ type Hub struct {
 // NewHub creates a new Hub
 func NewHub() *Hub {
 	return &Hub{
-		clients:    make(map[string]map[*Client]bool),
-		broadcast:  make(chan *BroadcastMessage, 256),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		done:       make(chan struct{}),
+		clients:         make(map[string]map[*Client]bool),
+		broadcast:       make(chan *BroadcastMessage, 256),
+		register:        make(chan *Client),
+		unregister:      make(chan *Client),
+		userCountUpdate: make(chan struct{}, 10),
+		done:            make(chan struct{}),
 	}
 }
 
@@ -63,8 +68,26 @@ func (h *Hub) Run(ctx context.Context) error {
 				slog.String("user", client.username),
 				slog.String("chatroom_id", client.chatroomID))
 
+			// Signal user count update (non-blocking)
+			select {
+			case h.userCountUpdate <- struct{}{}:
+			default:
+				// Channel full, update already pending
+			}
+
 		case client := <-h.unregister:
 			h.unregisterClient(client)
+
+			// Signal user count update (non-blocking)
+			select {
+			case h.userCountUpdate <- struct{}{}:
+			default:
+				// Channel full, update already pending
+			}
+
+		case <-h.userCountUpdate:
+			// Send user count update to all clients
+			h.sendUserCountUpdate()
 
 		case message := <-h.broadcast:
 			// Send to all clients in the chatroom
@@ -145,4 +168,58 @@ func (h *Hub) Register(client *Client) {
 // Unregister removes a client from the hub
 func (h *Hub) Unregister(client *Client) {
 	h.unregister <- client
+}
+
+// GetConnectedUserCount returns the number of connected users in a chatroom
+func (h *Hub) GetConnectedUserCount(chatroomID string) int {
+	if clients, ok := h.clients[chatroomID]; ok {
+		return len(clients)
+	}
+	return 0
+}
+
+// GetAllConnectedCounts returns a map of chatroom IDs to their connected user counts
+func (h *Hub) GetAllConnectedCounts() map[string]int {
+	counts := make(map[string]int)
+	for chatroomID, clients := range h.clients {
+		counts[chatroomID] = len(clients)
+	}
+	return counts
+}
+
+// sendUserCountUpdate sends user count updates to all connected clients
+// This method should only be called from within the Hub's Run loop
+func (h *Hub) sendUserCountUpdate() {
+	counts := make(map[string]int)
+	for chatroomID, clients := range h.clients {
+		counts[chatroomID] = len(clients)
+	}
+
+	// Marshal the counts to JSON
+	message := map[string]interface{}{
+		"type":        "user_count_update",
+		"user_counts": counts,
+	}
+
+	data, err := json.Marshal(message)
+	if err != nil {
+		slog.Error("failed to marshal user count update", slog.String("error", err.Error()))
+		return
+	}
+
+	// Broadcast to all chatrooms
+	for chatroomID := range h.clients {
+		if clients, ok := h.clients[chatroomID]; ok && len(clients) > 0 {
+			// Send using the broadcast channel (non-blocking)
+			select {
+			case h.broadcast <- &BroadcastMessage{
+				ChatroomID: chatroomID,
+				Message:    data,
+			}:
+			default:
+				slog.Warn("broadcast channel full, skipping user count update",
+					slog.String("chatroom_id", chatroomID))
+			}
+		}
+	}
 }

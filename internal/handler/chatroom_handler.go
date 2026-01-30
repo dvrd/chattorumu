@@ -11,15 +11,23 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// HubInterface defines the interface for getting connected user counts
+type HubInterface interface {
+	GetConnectedUserCount(chatroomID string) int
+	GetAllConnectedCounts() map[string]int
+}
+
 // ChatroomHandler handles chatroom endpoints
 type ChatroomHandler struct {
 	chatService *service.ChatService
+	hub         HubInterface
 }
 
 // NewChatroomHandler creates a new chatroom handler
-func NewChatroomHandler(chatService *service.ChatService) *ChatroomHandler {
+func NewChatroomHandler(chatService *service.ChatService, hub HubInterface) *ChatroomHandler {
 	return &ChatroomHandler{
 		chatService: chatService,
+		hub:         hub,
 	}
 }
 
@@ -28,7 +36,16 @@ type CreateChatroomRequest struct {
 	Name string `json:"name"`
 }
 
-// List retrieves all chatrooms
+// ChatroomResponse extends domain.Chatroom with connected user count
+type ChatroomResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+	CreatedBy string `json:"created_by"`
+	UserCount int    `json:"user_count"`
+}
+
+// List retrieves all chatrooms with connected user counts
 func (h *ChatroomHandler) List(w http.ResponseWriter, r *http.Request) {
 	chatrooms, err := h.chatService.ListChatrooms(r.Context())
 	if err != nil {
@@ -36,9 +53,24 @@ func (h *ChatroomHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get connected user counts from hub
+	connectedCounts := h.hub.GetAllConnectedCounts()
+
+	// Build response with user counts
+	response := make([]ChatroomResponse, len(chatrooms))
+	for i, room := range chatrooms {
+		response[i] = ChatroomResponse{
+			ID:        room.ID,
+			Name:      room.Name,
+			CreatedAt: room.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			CreatedBy: room.CreatedBy,
+			UserCount: connectedCounts[room.ID],
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"chatrooms": chatrooms,
+		"chatrooms": response,
 	})
 }
 

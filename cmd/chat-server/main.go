@@ -97,7 +97,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
-	chatroomHandler := handler.NewChatroomHandler(chatService)
+	chatroomHandler := handler.NewChatroomHandler(chatService, hub)
 	wsHandler := handler.NewWebSocketHandler(hub, chatService, authService, rmq, sessionRepo, cfg.AllowedOrigins)
 
 	// Setup router
