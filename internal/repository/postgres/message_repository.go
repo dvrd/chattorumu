@@ -84,3 +84,50 @@ func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string
 
 	return messages, nil
 }
+
+// GetByCharoomBefore retrieves messages before a specific timestamp
+func (r *MessageRepository) GetByChatroomBefore(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error) {
+	// Get messages before the specified timestamp, ordered oldest first
+	query := `
+		SELECT id, chatroom_id, user_id, username, content, is_bot, created_at
+		FROM (
+			SELECT m.id, m.chatroom_id, m.user_id, u.username, m.content, m.is_bot, m.created_at
+			FROM messages m
+			JOIN users u ON m.user_id = u.id
+			WHERE m.chatroom_id = $1 AND m.created_at < $2
+			ORDER BY m.created_at DESC
+			LIMIT $3
+		) AS recent_messages
+		ORDER BY created_at ASC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, chatroomID, before, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query messages before timestamp: %w", err)
+	}
+	defer rows.Close()
+
+	messages := make([]*domain.Message, 0, limit)
+	for rows.Next() {
+		msg := &domain.Message{}
+		err := rows.Scan(
+			&msg.ID,
+			&msg.ChatroomID,
+			&msg.UserID,
+			&msg.Username,
+			&msg.Content,
+			&msg.IsBot,
+			&msg.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan message: %w", err)
+		}
+		messages = append(messages, msg)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating messages: %w", err)
+	}
+
+	return messages, nil
+}

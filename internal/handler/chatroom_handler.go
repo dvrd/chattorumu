@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/middleware"
 	"jobsity-chat/internal/service"
 
@@ -140,7 +141,15 @@ func (h *ChatroomHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	messages, err := h.chatService.GetMessages(r.Context(), chatroomID, limit)
+	// Get messages - if 'before' timestamp is provided, load messages before that timestamp
+	var messages []*domain.Message
+	before := r.URL.Query().Get("before")
+	if before != "" {
+		messages, err = h.chatService.GetMessagesBefore(r.Context(), chatroomID, before, limit)
+	} else {
+		messages, err = h.chatService.GetMessages(r.Context(), chatroomID, limit)
+	}
+
 	if err != nil {
 		http.Error(w, `{"error":"Failed to retrieve messages"}`, http.StatusInternalServerError)
 		return

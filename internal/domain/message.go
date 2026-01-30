@@ -20,4 +20,5 @@ type Message struct {
 type MessageRepository interface {
 	Create(ctx context.Context, message *Message) error
 	GetByChatroom(ctx context.Context, chatroomID string, limit int) ([]*Message, error)
+	GetByChatroomBefore(ctx context.Context, chatroomID string, before string, limit int) ([]*Message, error)
 }

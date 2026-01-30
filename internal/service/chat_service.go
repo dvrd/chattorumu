@@ -22,13 +22,15 @@ func NewChatService(messageRepo domain.MessageRepository, chatroomRepo domain.Ch
 
 // SendMessage saves a message to the database
 func (s *ChatService) SendMessage(ctx context.Context, msg *domain.Message) error {
-	// Validate chatroom membership
-	isMember, err := s.chatroomRepo.IsMember(ctx, msg.ChatroomID, msg.UserID)
-	if err != nil {
-		return err
-	}
-	if !isMember {
-		return domain.ErrNotMember
+	// Validate chatroom membership (skip for bots)
+	if !msg.IsBot {
+		isMember, err := s.chatroomRepo.IsMember(ctx, msg.ChatroomID, msg.UserID)
+		if err != nil {
+			return err
+		}
+		if !isMember {
+			return domain.ErrNotMember
+		}
 	}
 
 	// Validate message content
@@ -46,6 +48,14 @@ func (s *ChatService) GetMessages(ctx context.Context, chatroomID string, limit 
 		limit = 50
 	}
 	return s.messageRepo.GetByChatroom(ctx, chatroomID, limit)
+}
+
+// GetMessagesBefore retrieves messages before a specific timestamp
+func (s *ChatService) GetMessagesBefore(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	return s.messageRepo.GetByChatroomBefore(ctx, chatroomID, before, limit)
 }
 
 // CreateChatroom creates a new chatroom
