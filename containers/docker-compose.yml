@@ -142,6 +142,28 @@ services:
       - prometheus
     restart: unless-stopped
 
+  k6:
+    image: grafana/k6:latest
+    container_name: jobsity-k6
+    volumes:
+      - ../tests/load:/scripts
+      - k6_results:/results
+    networks:
+      - jobsity-network
+    environment:
+      - BASE_URL=http://chat-server:8080
+      - BASE_WS_URL=ws://chat-server:8080
+      - K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write
+      - K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true
+      - K6_WEB_DASHBOARD=true
+      - K6_WEB_DASHBOARD_EXPORT=/results/html-report.html
+    depends_on:
+      - chat-server
+      - prometheus
+    # k6 is not started by default - use 'task load:run:*' commands
+    profiles:
+      - load-testing
+
 volumes:
   postgres_data:
     driver: local
@@ -150,6 +172,8 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  k6_results:
     driver: local
 
 networks:
