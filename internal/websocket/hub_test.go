@@ -2,11 +2,29 @@ package websocket
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+// Helper function to drain user_count_update messages and return the first non-count message
+func drainCountUpdates(ch <-chan []byte, timeout time.Duration) ([]byte, error) {
+	deadline := time.After(timeout)
+	for {
+		select {
+		case msg := <-ch:
+			// Check if it's a user_count_update message
+			if strings.Contains(string(msg), "user_count_update") {
+				continue // Skip count updates
+			}
+			return msg, nil
+		case <-deadline:
+			return nil, context.DeadlineExceeded
+		}
+	}
+}
 
 func TestHub_NewHub(t *testing.T) {
 	hub := NewHub()
@@ -139,13 +157,12 @@ func TestHub_RegisterClient(t *testing.T) {
 	// Verify by attempting to broadcast - if client is registered, it should receive
 	hub.Broadcast("test-room", []byte("test"))
 
-	select {
-	case msg := <-mockClient.send:
-		if string(msg) != "test" {
-			t.Errorf("Expected 'test', got %s", string(msg))
-		}
-	case <-time.After(100 * time.Millisecond):
+	// Use helper to skip user_count_update messages
+	msg, err := drainCountUpdates(mockClient.send, 200*time.Millisecond)
+	if err != nil {
 		t.Error("Client did not receive broadcast, likely not registered")
+	} else if string(msg) != "test" {
+		t.Errorf("Expected 'test', got %s", string(msg))
 	}
 }
 
@@ -244,23 +261,19 @@ func TestHub_BroadcastMessage(t *testing.T) {
 	// Broadcast message
 	hub.Broadcast("test-room", []byte("test message"))
 
-	// Both clients should receive (hub broadcasts to all in room)
-	select {
-	case msg := <-client1.send:
-		if string(msg) != "test message" {
-			t.Errorf("Expected 'test message', got %s", string(msg))
-		}
-	case <-time.After(100 * time.Millisecond):
+	// Both clients should receive (hub broadcasts to all in room) - after count updates
+	msg1, err := drainCountUpdates(client1.send, 200*time.Millisecond)
+	if err != nil {
 		t.Error("Client1 did not receive broadcast message")
+	} else if string(msg1) != "test message" {
+		t.Errorf("Expected 'test message', got %s", string(msg1))
 	}
 
-	select {
-	case msg := <-client2.send:
-		if string(msg) != "test message" {
-			t.Errorf("Expected 'test message', got %s", string(msg))
-		}
-	case <-time.After(100 * time.Millisecond):
+	msg2, err := drainCountUpdates(client2.send, 200*time.Millisecond)
+	if err != nil {
 		t.Error("Client2 did not receive broadcast message")
+	} else if string(msg2) != "test message" {
+		t.Errorf("Expected 'test message', got %s", string(msg2))
 	}
 }
 
@@ -301,20 +314,21 @@ func TestHub_BroadcastToMultipleChatrooms(t *testing.T) {
 	// Broadcast to room-1 only
 	hub.Broadcast("room-1", []byte("message for room 1"))
 
-	// Client1 should receive
-	select {
-	case msg := <-client1.send:
-		if string(msg) != "message for room 1" {
-			t.Errorf("Expected 'message for room 1', got %s", string(msg))
-		}
-	case <-time.After(100 * time.Millisecond):
+	// Client1 should receive (after draining count updates)
+	msg1, err := drainCountUpdates(client1.send, 200*time.Millisecond)
+	if err != nil {
 		t.Error("Client1 did not receive message")
+	} else if string(msg1) != "message for room 1" {
+		t.Errorf("Expected 'message for room 1', got %s", string(msg1))
 	}
 
-	// Client2 should not receive (different room)
+	// Client2 should not receive (different room) - drain any count updates first
 	select {
 	case msg := <-client2.send:
-		t.Errorf("Client2 should not receive message from room-1, got: %s", string(msg))
+		// If it's a count update, that's fine, otherwise error
+		if !strings.Contains(string(msg), "user_count_update") {
+			t.Errorf("Client2 should not receive message from room-1, got: %s", string(msg))
+		}
 	case <-time.After(100 * time.Millisecond):
 		// Expected
 	}

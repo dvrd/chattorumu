@@ -11,9 +11,10 @@ import (
 
 // Mock repositories for testing
 type mockMessageRepository struct {
-	messages      []*domain.Message
-	create        func(ctx context.Context, message *domain.Message) error
-	getByChatroom func(ctx context.Context, chatroomID string, limit int) ([]*domain.Message, error)
+	messages           []*domain.Message
+	create             func(ctx context.Context, message *domain.Message) error
+	getByChatroom      func(ctx context.Context, chatroomID string, limit int) ([]*domain.Message, error)
+	getByChatroomBefore func(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error)
 }
 
 func (m *mockMessageRepository) Create(ctx context.Context, message *domain.Message) error {
@@ -34,6 +35,32 @@ func (m *mockMessageRepository) GetByChatroom(ctx context.Context, chatroomID st
 	result := []*domain.Message{}
 	for _, msg := range m.messages {
 		if msg.ChatroomID == chatroomID {
+			result = append(result, msg)
+		}
+	}
+
+	// Apply limit
+	if limit > 0 && len(result) > limit {
+		result = result[:limit]
+	}
+
+	return result, nil
+}
+
+func (m *mockMessageRepository) GetByChatroomBefore(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error) {
+	if m.getByChatroomBefore != nil {
+		return m.getByChatroomBefore(ctx, chatroomID, before, limit)
+	}
+
+	// Parse the before timestamp
+	beforeTime, err := time.Parse(time.RFC3339, before)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []*domain.Message{}
+	for _, msg := range m.messages {
+		if msg.ChatroomID == chatroomID && msg.CreatedAt.Before(beforeTime) {
 			result = append(result, msg)
 		}
 	}
