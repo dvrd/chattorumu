@@ -31,14 +31,15 @@ func main() {
 
 	slog.Info("starting stock bot")
 
-	rmq, err := messaging.NewRabbitMQ(cfg.RabbitMQURL)
+	rmqCtx, rmqCancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer rmqCancel()
+
+	rmq, err := messaging.NewRabbitMQWithRetry(rmqCtx, cfg.RabbitMQURL)
 	if err != nil {
 		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 	defer rmq.Close()
-
-	slog.Info("connected to rabbitmq")
 
 	stooqClient := stock.NewStooqClient(cfg.StooqAPIURL)
 

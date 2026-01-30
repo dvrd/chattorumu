@@ -28,7 +28,7 @@ type RateLimiter struct {
 	stopCh   chan struct{}
 }
 
-func NewRateLimiter(requestsPerSecond float64, burst int) *RateLimiter {
+func NewRateLimiter(ctx context.Context, requestsPerSecond float64, burst int) *RateLimiter {
 	rl := &RateLimiter{
 		limiters: make(map[string]*limiterEntry),
 		rate:     rate.Limit(requestsPerSecond),
@@ -36,7 +36,7 @@ func NewRateLimiter(requestsPerSecond float64, burst int) *RateLimiter {
 		stopCh:   make(chan struct{}),
 	}
 
-	go rl.cleanupLoop(context.Background())
+	go rl.cleanupLoop(ctx)
 
 	return rl
 }

@@ -41,8 +41,9 @@ func main() {
 	slog.Info("starting chat server")
 
 	connCtx, connCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer connCancel()
+
 	db, err := config.NewPostgresConnection(cfg.DatabaseURL)
-	connCancel()
 	if err != nil {
 		slog.Error("failed to connect to database", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -55,13 +56,15 @@ func main() {
 	}
 	slog.Info("connected to postgresql")
 
-	rmq, err := messaging.NewRabbitMQ(cfg.RabbitMQURL)
+	rmqCtx, rmqCancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer rmqCancel()
+
+	rmq, err := messaging.NewRabbitMQWithRetry(rmqCtx, cfg.RabbitMQURL)
 	if err != nil {
 		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 	defer rmq.Close()
-	slog.Info("connected to rabbitmq")
 
 	userRepo := postgres.NewUserRepository(db)
 	sessionRepo := postgres.NewSessionRepository(db)
@@ -141,8 +144,8 @@ func main() {
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// Rate limit auth routes to prevent brute force attacks
-		authLimiter := middleware.NewRateLimiter(5, 10)
+		authLimiter := middleware.NewRateLimiter(ctx, 5, 10)
+		apiLimiter := middleware.NewRateLimiter(ctx, 20, 50)
 
 		r.Group(func(r chi.Router) {
 			r.Use(authLimiter.Middleware())
@@ -152,6 +155,7 @@ func main() {
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(sessionRepo))
+			r.Use(apiLimiter.Middleware())
 
 			r.Get("/auth/me", authHandler.Me)
 			r.Post("/auth/logout", authHandler.Logout)

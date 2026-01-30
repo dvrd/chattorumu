@@ -58,9 +58,9 @@ type ServerMessage struct {
 	Message   string     `json:"message,omitempty"`
 }
 
-func NewClient(hub *Hub, conn *websocket.Conn, userID, username, chatroomID string,
+func NewClient(ctx context.Context, hub *Hub, conn *websocket.Conn, userID, username, chatroomID string,
 	chatService *service.ChatService, publisher MessagePublisher) *Client {
-	ctx, cancel := context.WithCancel(context.Background())
+	clientCtx, cancel := context.WithCancel(ctx)
 
 	return &Client{
 		hub:         hub,
@@ -71,7 +71,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, username, chatroomID stri
 		chatroomID:  chatroomID,
 		chatService: chatService,
 		publisher:   publisher,
-		ctx:         ctx,
+		ctx:         clientCtx,
 		ctxCancel:   cancel,
 	}
 }
