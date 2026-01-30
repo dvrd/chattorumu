@@ -188,144 +188,78 @@ tasks:
     cmds:
       - echo "Project initialized!"
 
-  # ============================================================================
   # Load Testing Commands (k6)
-  # ============================================================================
-
   load:setup:
     desc: Setup load testing environment
     cmds:
-      - echo "🚀 Setting up load testing environment..."
-      - echo "   Starting all services..."
+      - echo "Setting up load testing environment..."
+      - echo "Starting all services..."
       - docker-compose -f {{.DOCKER_COMPOSE_FILE}} up -d
-      - echo "   Waiting for services to be ready..."
+      - echo "Waiting for services to be ready..."
       - sleep 10
-      - echo "✅ Load testing environment ready!"
-      - echo ""
-      - echo "Available test scenarios:"
-      - echo "  1. task load:run:connection     - Basic connection load (17 min)"
-      - echo "  2. task load:run:chat           - Active chat load (13 min)"
-      - echo "  3. task load:run:stock          - Stock bot stress (6.5 min)"
-      - echo "  4. task load:run:spike          - Spike test (10 min)"
-      - echo "  5. task load:run:soak           - Soak test (2+ hours)"
-      - echo "  6. task load:run:multiroom      - Multi-room load (15 min)"
-      - echo ""
-      - echo "Quick test: task load:run:chat"
-
-  load:run:connection:
-    desc: Run Scenario 1 - Basic Connection Load
-    summary: |
-      Test maximum concurrent WebSocket connections
-      Duration: 17 minutes (5m ramp + 10m hold + 2m down)
-      Users: 0 → 1000 → 0
-    cmds:
-      - echo "🧪 Running Scenario 1: Basic Connection Load"
-      - docker-compose -f {{.DOCKER_COMPOSE_FILE}} --profile load-testing run --rm k6 run --out experimental-prometheus-rw /scripts/scenarios/01-connection-load.js
+      - echo "Load testing environment ready"
 
   load:run:chat:
-    desc: Run Scenario 2 - Active Chat Load (Realistic)
-    summary: |
-      Simulate real users chatting
-      Duration: 13 minutes
-      Users: 500 across 10 chatrooms
+    desc: Run Active Chat Load test
     cmds:
-      - echo "💬 Running Scenario 2: Active Chat Load"
+      - echo "Running Active Chat Load test"
       - docker-compose -f {{.DOCKER_COMPOSE_FILE}} --profile load-testing run --rm k6 run --out experimental-prometheus-rw /scripts/scenarios/02-active-chat-load.js
 
-  load:run:stock:
-    desc: Run Scenario 3 - Stock Bot Stress Test
-    summary: |
-      Test stock command processing under load
-      Duration: 6.5 minutes
-      Users: 100 sending commands every 10 seconds
+  load:run:connection:
+    desc: Run Connection Load test
     cmds:
-      - echo "📈 Running Scenario 3: Stock Bot Stress"
+      - echo "Running Connection Load test"
+      - docker-compose -f {{.DOCKER_COMPOSE_FILE}} --profile load-testing run --rm k6 run --out experimental-prometheus-rw /scripts/scenarios/01-connection-load.js
+
+  load:run:stock:
+    desc: Run Stock Bot Stress test
+    cmds:
+      - echo "Running Stock Bot Stress test"
       - docker-compose -f {{.DOCKER_COMPOSE_FILE}} --profile load-testing run --rm k6 run --out experimental-prometheus-rw /scripts/scenarios/03-stock-bot-stress.js
 
   load:run:spike:
-    desc: Run Scenario 4 - Spike Test (Resilience)
-    summary: |
-      Test sudden traffic surge and recovery
-      Duration: 10 minutes
-      Pattern: 100 → 1000 → 100 users
+    desc: Run Spike Test
     cmds:
-      - echo "⚡ Running Scenario 4: Spike Test"
+      - echo "Running Spike Test"
       - docker-compose -f {{.DOCKER_COMPOSE_FILE}} --profile load-testing run --rm k6 run --out experimental-prometheus-rw /scripts/scenarios/04-spike-test.js
 
   load:run:soak:
-    desc: Run Scenario 5 - Soak Test (Stability)
-    summary: |
-      Detect memory leaks and resource exhaustion
-      Duration: 2+ hours (use SHORT_SOAK=true for 15 min test)
-      Users: 300 continuous
+    desc: Run Soak Test (2+ hours)
     cmds:
-      - echo "⏰ Running Scenario 5: Soak Test"
-      - echo "⚠️  This will run for 2+ hours. Set SHORT_SOAK=true for 15-minute test."
+      - echo "Running Soak Test - This will take 2+ hours"
       - docker-compose -f {{.DOCKER_COMPOSE_FILE}} --profile load-testing run --rm k6 run --out experimental-prometheus-rw /scripts/scenarios/05-soak-test.js
 
   load:run:soak-short:
     desc: Run Short Soak Test (15 minutes)
     cmds:
-      - echo "⏰ Running Short Soak Test (15 minutes)"
+      - echo "Running Short Soak Test (15 minutes)"
       - docker-compose -f {{.DOCKER_COMPOSE_FILE}} --profile load-testing run --rm -e SHORT_SOAK=true k6 run --out experimental-prometheus-rw /scripts/scenarios/05-soak-test.js
 
   load:run:multiroom:
-    desc: Run Scenario 6 - Multi-Room Load Distribution
-    summary: |
-      Test hub broadcast efficiency
-      Duration: 15 minutes
-      Users: 1000 across 50 chatrooms (Pareto distribution)
+    desc: Run Multi-Room Load test
     cmds:
-      - echo "🏢 Running Scenario 6: Multi-Room Load"
+      - echo "Running Multi-Room Load test"
       - docker-compose -f {{.DOCKER_COMPOSE_FILE}} --profile load-testing run --rm k6 run --out experimental-prometheus-rw /scripts/scenarios/06-multi-room-load.js
 
   load:run:all:
-    desc: Run all load test scenarios sequentially
-    summary: |
-      Run all 6 scenarios one after another
-      Total duration: ~1 hour (excluding soak test)
-      Useful for comprehensive testing
+    desc: Run all load test scenarios
     cmds:
-      - echo "🎯 Running ALL load test scenarios"
-      - echo "This will take approximately 1 hour"
-      - echo ""
+      - echo "Running all load test scenarios"
       - task load:run:connection
-      - echo "✅ Scenario 1 complete. Cooling down..."
       - sleep 30
       - task load:run:chat
-      - echo "✅ Scenario 2 complete. Cooling down..."
       - sleep 30
       - task load:run:stock
-      - echo "✅ Scenario 3 complete. Cooling down..."
       - sleep 30
       - task load:run:spike
-      - echo "✅ Scenario 4 complete. Cooling down..."
       - sleep 30
       - task load:run:multiroom
-      - echo "✅ Scenario 6 complete."
-      - echo ""
-      - echo "🎉 All load tests complete!"
-      - echo "Check Grafana at http://localhost:3100 for results"
-
-  load:results:
-    desc: View load test results
-    cmds:
-      - echo "📊 Load Test Results"
-      - echo ""
-      - echo "HTML Report: Open the generated HTML report"
-      - docker run --rm -v containers_k6_results:/results alpine sh -c "ls -lh /results/"
-      - echo ""
-      - echo "Grafana Dashboard: http://localhost:3100"
-      - echo "  - Import k6 dashboard (ID: 18595)"
-      - echo "  - View your app metrics alongside k6 metrics"
-      - echo ""
-      - echo "Prometheus Queries:"
-      - echo "  http://localhost:9090"
+      - echo "All load tests complete"
 
   load:clean:
     desc: Clean load test results
     cmds:
-      - echo "🧹 Cleaning load test results..."
+      - echo "Cleaning load test results..."
       - docker-compose -f {{.DOCKER_COMPOSE_FILE}} --profile load-testing down
       - docker volume rm containers_k6_results 2>/dev/null || true
-      - echo "✅ Cleaned!"
+      - echo "Cleaned"
