@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"time"
 
-	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/service"
 	"jobsity-chat/internal/websocket"
 )
@@ -87,12 +87,20 @@ func (c *ResponseConsumer) Start(ctx context.Context) error {
 					return
 				}
 
+				slog.Info("received stock response from queue",
+					slog.Int("body_size", len(msg.Body)))
+
 				var response StockResponse
 				if err := json.Unmarshal(msg.Body, &response); err != nil {
 					slog.Error("error unmarshaling response",
-						slog.String("error", err.Error()))
+						slog.String("error", err.Error()),
+						slog.String("body", string(msg.Body)))
 					continue
 				}
+
+				slog.Info("processing stock response",
+					slog.String("chatroom_id", response.ChatroomID),
+					slog.String("symbol", response.Symbol))
 
 				c.processResponse(ctx, &response)
 			}
@@ -106,38 +114,34 @@ func (c *ResponseConsumer) processResponse(ctx context.Context, response *StockR
 	// Determine content based on error
 	content := response.FormattedMessage
 	if response.Error != "" {
-		content = "Error: " + response.Error
+		content = response.Error
 	}
 
-	// Save bot message to database
-	message := &domain.Message{
-		ChatroomID: response.ChatroomID,
-		UserID:     c.botUserID,
-		Username:   "StockBot",
-		Content:    content,
-		IsBot:      true,
-	}
+	// Bot messages are NOT saved to database - only broadcast via WebSocket
+	// This keeps the chat history clean and reduces database load
+	slog.Info("processing bot message (not saving to database)",
+		slog.String("chatroom_id", response.ChatroomID),
+		slog.String("symbol", response.Symbol))
 
-	if err := c.chatService.SendMessage(ctx, message); err != nil {
-		slog.Error("error saving bot message",
-			slog.String("error", err.Error()),
-			slog.String("chatroom_id", response.ChatroomID),
-			slog.String("content", content))
-		return
-	}
-
-	// Broadcast to WebSocket clients
+	// Broadcast to WebSocket clients only
 	serverMsg := websocket.ServerMessage{
 		Type:      "chat_message",
-		ID:        message.ID,
-		UserID:    message.UserID,
-		Username:  message.Username,
-		Content:   message.Content,
-		IsBot:     message.IsBot,
-		CreatedAt: message.CreatedAt,
+		ID:        "bot-" + response.ChatroomID + "-" + response.Symbol, // Temporary ID for frontend
+		UserID:    c.botUserID,
+		Username:  "StockBot",
+		Content:   content,
+		IsBot:     true,
+		IsError:   response.Error != "",
+		CreatedAt: time.Now(),
 	}
 
 	if data, err := json.Marshal(serverMsg); err == nil {
 		c.hub.Broadcast(response.ChatroomID, data)
+		slog.Info("broadcast bot message to websocket",
+			slog.String("chatroom_id", response.ChatroomID),
+			slog.String("content", content))
+	} else {
+		slog.Error("error marshaling server message",
+			slog.String("error", err.Error()))
 	}
 }
