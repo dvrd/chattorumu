@@ -222,18 +222,21 @@ func main() {
 func ensureBotUser(authService *service.AuthService) string {
 	ctx := context.Background()
 
-	// Try to get existing bot user
-	botUser, err := authService.GetUserByID(ctx, "00000000-0000-0000-0000-000000000001")
+	// Try to get existing bot user by username
+	botUser, err := authService.GetUserByUsername(ctx, "StockBot")
 	if err == nil {
-		slog.Info("bot user already exists", slog.String("username", botUser.Username))
+		slog.Info("bot user already exists",
+			slog.String("username", botUser.Username),
+			slog.String("id", botUser.ID))
 		return botUser.ID
 	}
 
-	// Create bot user
+	// Create bot user if it doesn't exist
 	botUser, err = authService.Register(ctx, "StockBot", "bot@jobsity.com", "bot-password-not-used")
 	if err != nil {
-		slog.Warn("failed to create bot user", slog.String("error", err.Error()))
-		return "00000000-0000-0000-0000-000000000001" // Fallback to hardcoded ID
+		slog.Error("failed to create bot user", slog.String("error", err.Error()))
+		// If we can't create or find the bot, this is a critical error
+		panic("could not initialize stock bot user")
 	}
 
 	slog.Info("created bot user",

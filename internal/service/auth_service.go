@@ -119,3 +119,8 @@ func (s *AuthService) ValidateSession(ctx context.Context, token string) (*domai
 func (s *AuthService) GetUserByID(ctx context.Context, userID string) (*domain.User, error) {
 	return s.userRepo.GetByID(ctx, userID)
 }
+
+// GetUserByUsername retrieves a user by username
+func (s *AuthService) GetUserByUsername(ctx context.Context, username string) (*domain.User, error) {
+	return s.userRepo.GetByUsername(ctx, username)
+}
