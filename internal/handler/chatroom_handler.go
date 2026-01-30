@@ -20,6 +20,7 @@ type HubInterface interface {
 type ChatServiceInterface interface {
 	CreateChatroom(ctx context.Context, name, createdBy string) (*domain.Chatroom, error)
 	ListChatrooms(ctx context.Context) ([]*domain.Chatroom, error)
+	ListChatroomsPaginated(ctx context.Context, limit int, cursor string) ([]*domain.Chatroom, string, error)
 	JoinChatroom(ctx context.Context, chatroomID, userID string) error
 	IsMember(ctx context.Context, chatroomID, userID string) (bool, error)
 	GetMessages(ctx context.Context, chatroomID string, limit int) ([]*domain.Message, error)
@@ -52,7 +53,15 @@ type ChatroomResponse struct {
 }
 
 func (h *ChatroomHandler) List(w http.ResponseWriter, r *http.Request) {
-	chatrooms, err := h.chatService.ListChatrooms(r.Context())
+	cursor := r.URL.Query().Get("cursor")
+	limit := 50
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	chatrooms, nextCursor, err := h.chatService.ListChatroomsPaginated(r.Context(), limit, cursor)
 	if err != nil {
 		http.Error(w, `{"error":"Failed to retrieve chatrooms"}`, http.StatusInternalServerError)
 		return
@@ -72,9 +81,13 @@ func (h *ChatroomHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	responseData := map[string]any{
 		"chatrooms": response,
-	})
+	}
+	if nextCursor != "" {
+		responseData["next_cursor"] = nextCursor
+	}
+	json.NewEncoder(w).Encode(responseData)
 }
 
 func (h *ChatroomHandler) Create(w http.ResponseWriter, r *http.Request) {

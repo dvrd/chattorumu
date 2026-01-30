@@ -94,6 +94,68 @@ func (r *ChatroomRepository) List(ctx context.Context) ([]*domain.Chatroom, erro
 	return chatrooms, nil
 }
 
+func (r *ChatroomRepository) ListPaginated(ctx context.Context, limit int, cursor string) ([]*domain.Chatroom, string, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	var query string
+	var rows *sql.Rows
+	var err error
+
+	if cursor == "" {
+		query = `
+			SELECT id, name, created_at, created_by
+			FROM chatrooms
+			ORDER BY created_at DESC, id DESC
+			LIMIT $1
+		`
+		rows, err = r.db.QueryContext(ctx, query, limit+1)
+	} else {
+		query = `
+			SELECT id, name, created_at, created_by
+			FROM chatrooms
+			WHERE created_at < (SELECT created_at FROM chatrooms WHERE id = $1)
+			   OR (created_at = (SELECT created_at FROM chatrooms WHERE id = $1) AND id < $1)
+			ORDER BY created_at DESC, id DESC
+			LIMIT $2
+		`
+		rows, err = r.db.QueryContext(ctx, query, cursor, limit+1)
+	}
+
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to query chatrooms: %w", err)
+	}
+	defer rows.Close()
+
+	chatrooms := make([]*domain.Chatroom, 0, limit)
+	for rows.Next() {
+		chatroom := &domain.Chatroom{}
+		err := rows.Scan(
+			&chatroom.ID,
+			&chatroom.Name,
+			&chatroom.CreatedAt,
+			&chatroom.CreatedBy,
+		)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to scan chatroom: %w", err)
+		}
+		chatrooms = append(chatrooms, chatroom)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, "", fmt.Errorf("error iterating chatrooms: %w", err)
+	}
+
+	var nextCursor string
+	if len(chatrooms) > limit {
+		nextCursor = chatrooms[limit-1].ID
+		chatrooms = chatrooms[:limit]
+	}
+
+	return chatrooms, nextCursor, nil
+}
+
 func (r *ChatroomRepository) AddMember(ctx context.Context, chatroomID, userID string) error {
 	query := `
 		INSERT INTO chatroom_members (chatroom_id, user_id)
