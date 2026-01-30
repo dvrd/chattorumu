@@ -130,6 +130,18 @@ func (m *mockChatroomRepository) List(ctx context.Context) ([]*domain.Chatroom, 
 	return result, nil
 }
 
+func (m *mockChatroomRepository) ListPaginated(ctx context.Context, limit int, cursor string) ([]*domain.Chatroom, string, error) {
+	result := []*domain.Chatroom{}
+	for _, chatroom := range m.chatrooms {
+		result = append(result, chatroom)
+	}
+
+	if len(result) > limit {
+		return result[:limit], "next-cursor", nil
+	}
+	return result, "", nil
+}
+
 func (m *mockChatroomRepository) AddMember(ctx context.Context, chatroomID, userID string) error {
 	if m.addMember != nil {
 		return m.addMember(ctx, chatroomID, userID)

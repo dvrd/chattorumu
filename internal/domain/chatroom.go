@@ -25,6 +25,7 @@ type ChatroomRepository interface {
 	CreateWithMember(ctx context.Context, chatroom *Chatroom, userID string) error
 	GetByID(ctx context.Context, id string) (*Chatroom, error)
 	List(ctx context.Context) ([]*Chatroom, error)
+	ListPaginated(ctx context.Context, limit int, cursor string) ([]*Chatroom, string, error)
 	AddMember(ctx context.Context, chatroomID, userID string) error
 	IsMember(ctx context.Context, chatroomID, userID string) (bool, error)
 }

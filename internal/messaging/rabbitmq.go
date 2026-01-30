@@ -5,14 +5,68 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+type channelPool struct {
+	conn *amqp.Connection
+	pool *sync.Pool
+	mu   sync.Mutex
+}
+
+func newChannelPool(conn *amqp.Connection) *channelPool {
+	cp := &channelPool{
+		conn: conn,
+	}
+	cp.pool = &sync.Pool{
+		New: func() any {
+			ch, err := cp.newChannel()
+			if err != nil {
+				slog.Error("failed to create channel in pool", slog.String("error", err.Error()))
+				return nil
+			}
+			return ch
+		},
+	}
+	return cp
+}
+
+func (cp *channelPool) newChannel() (*amqp.Channel, error) {
+	ch, err := cp.conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open channel: %w", err)
+	}
+	return ch, nil
+}
+
+func (cp *channelPool) getChannel() (*amqp.Channel, error) {
+	obj := cp.pool.Get()
+	if obj == nil {
+		return cp.newChannel()
+	}
+
+	ch := obj.(*amqp.Channel)
+	if ch.IsClosed() {
+		return cp.newChannel()
+	}
+
+	return ch, nil
+}
+
+func (cp *channelPool) putChannel(ch *amqp.Channel) {
+	if ch != nil && !ch.IsClosed() {
+		cp.pool.Put(ch)
+	}
+}
+
 type RabbitMQ struct {
-	conn    *amqp.Connection
-	channel *amqp.Channel
+	conn        *amqp.Connection
+	channel     *amqp.Channel
+	publishPool *channelPool
+	mu          sync.Mutex
 }
 
 type BotCommand struct {
@@ -52,8 +106,9 @@ func NewRabbitMQ(url string) (*RabbitMQ, error) {
 	}
 
 	rmq := &RabbitMQ{
-		conn:    conn,
-		channel: ch,
+		conn:        conn,
+		channel:     ch,
+		publishPool: newChannelPool(conn),
 	}
 
 	if err := rmq.Setup(); err != nil {
@@ -120,7 +175,13 @@ func (r *RabbitMQ) PublishCommand(ctx context.Context, cmd *BotCommand) error {
 		return fmt.Errorf("failed to marshal command: %w", err)
 	}
 
-	err = r.channel.PublishWithContext(
+	ch, err := r.publishPool.getChannel()
+	if err != nil {
+		return fmt.Errorf("failed to get channel from pool: %w", err)
+	}
+	defer r.publishPool.putChannel(ch)
+
+	err = ch.PublishWithContext(
 		ctx,
 		"chat.commands",
 		"stock.request",
@@ -170,7 +231,13 @@ func (r *RabbitMQ) PublishStockResponse(ctx context.Context, response *StockResp
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	err = r.channel.PublishWithContext(
+	ch, err := r.publishPool.getChannel()
+	if err != nil {
+		return fmt.Errorf("failed to get channel from pool: %w", err)
+	}
+	defer r.publishPool.putChannel(ch)
+
+	err = ch.PublishWithContext(
 		ctx,
 		"chat.responses",
 		"",

@@ -71,6 +71,10 @@ func (s *ChatService) ListChatrooms(ctx context.Context) ([]*domain.Chatroom, er
 	return s.chatroomRepo.List(ctx)
 }
 
+func (s *ChatService) ListChatroomsPaginated(ctx context.Context, limit int, cursor string) ([]*domain.Chatroom, string, error) {
+	return s.chatroomRepo.ListPaginated(ctx, limit, cursor)
+}
+
 func (s *ChatService) JoinChatroom(ctx context.Context, chatroomID, userID string) error {
 	if _, err := s.chatroomRepo.GetByID(ctx, chatroomID); err != nil {
 		return err

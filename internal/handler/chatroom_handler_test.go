@@ -40,6 +40,14 @@ func (m *mockChatService) ListChatrooms(ctx context.Context) ([]*domain.Chatroom
 	return nil, errors.New("not implemented")
 }
 
+func (m *mockChatService) ListChatroomsPaginated(ctx context.Context, limit int, cursor string) ([]*domain.Chatroom, string, error) {
+	if m.listChatroomsFunc != nil {
+		chatrooms, err := m.listChatroomsFunc(ctx)
+		return chatrooms, "", err
+	}
+	return nil, "", errors.New("not implemented")
+}
+
 func (m *mockChatService) JoinChatroom(ctx context.Context, chatroomID, userID string) error {
 	if m.joinChatroomFunc != nil {
 		return m.joinChatroomFunc(ctx, chatroomID, userID)

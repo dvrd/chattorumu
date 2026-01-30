@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"sync"
 
 	"jobsity-chat/internal/observability"
 )
@@ -14,6 +15,7 @@ type BroadcastMessage struct {
 }
 
 type Hub struct {
+	mu              sync.RWMutex
 	clients         map[string]map[*Client]bool
 	broadcast       chan *BroadcastMessage
 	register        chan *Client
@@ -140,6 +142,9 @@ func (h *Hub) Unregister(client *Client) {
 }
 
 func (h *Hub) GetConnectedUserCount(chatroomID string) int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	if clients, ok := h.clients[chatroomID]; ok {
 		return len(clients)
 	}
@@ -147,6 +152,9 @@ func (h *Hub) GetConnectedUserCount(chatroomID string) int {
 }
 
 func (h *Hub) GetAllConnectedCounts() map[string]int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	counts := make(map[string]int)
 	for chatroomID, clients := range h.clients {
 		counts[chatroomID] = len(clients)
