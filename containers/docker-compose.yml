@@ -89,6 +89,19 @@ services:
     networks:
       - jobsity-network
 
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: jobsity-swagger-ui
+    environment:
+      SWAGGER_JSON: /api/openapi.yaml
+      BASE_URL: /swagger
+    ports:
+      - "8081:8080"
+    volumes:
+      - ../artifacts:/api:ro
+    networks:
+      - jobsity-network
+
 volumes:
   postgres_data:
     driver: local

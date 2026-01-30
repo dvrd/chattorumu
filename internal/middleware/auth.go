@@ -52,3 +52,13 @@ func GetSession(ctx context.Context) (*domain.Session, bool) {
 	session, ok := ctx.Value(SessionKey).(*domain.Session)
 	return session, ok
 }
+
+// WithUserID adds a user ID to the context (for testing)
+func WithUserID(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, UserIDKey, userID)
+}
+
+// WithSession adds a session to the context (for testing)
+func WithSession(ctx context.Context, session *domain.Session) context.Context {
+	return context.WithValue(ctx, SessionKey, session)
+}
