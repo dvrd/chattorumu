@@ -16,7 +16,16 @@ type RabbitMQ struct {
 	channel *amqp.Channel
 }
 
-// StockCommand represents a stock quote request
+// BotCommand represents a generic bot command
+type BotCommand struct {
+	Type        string `json:"type"`         // "stock" or "hello"
+	ChatroomID  string `json:"chatroom_id"`
+	StockCode   string `json:"stock_code,omitempty"`
+	RequestedBy string `json:"requested_by"`
+	Timestamp   int64  `json:"timestamp"`
+}
+
+// StockCommand represents a stock quote request (deprecated, kept for backwards compatibility)
 type StockCommand struct {
 	ChatroomID  string `json:"chatroom_id"`
 	StockCode   string `json:"stock_code"`
@@ -116,15 +125,8 @@ func (r *RabbitMQ) Setup() error {
 	return nil
 }
 
-// PublishStockCommand publishes a stock command request
-func (r *RabbitMQ) PublishStockCommand(ctx context.Context, chatroomID, stockCode, requestedBy string) error {
-	cmd := StockCommand{
-		ChatroomID:  chatroomID,
-		StockCode:   stockCode,
-		RequestedBy: requestedBy,
-		Timestamp:   time.Now().Unix(),
-	}
-
+// PublishCommand publishes a generic bot command
+func (r *RabbitMQ) PublishCommand(ctx context.Context, cmd *BotCommand) error {
 	body, err := json.Marshal(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to marshal command: %w", err)
@@ -133,7 +135,7 @@ func (r *RabbitMQ) PublishStockCommand(ctx context.Context, chatroomID, stockCod
 	err = r.channel.PublishWithContext(
 		ctx,
 		"chat.commands", // exchange
-		"stock.request", // routing key
+		"stock.request", // routing key (keeping same for backwards compatibility)
 		false,           // mandatory
 		false,           // immediate
 		amqp.Publishing{
@@ -147,10 +149,33 @@ func (r *RabbitMQ) PublishStockCommand(ctx context.Context, chatroomID, stockCod
 		return fmt.Errorf("failed to publish command: %w", err)
 	}
 
-	slog.Info("published stock command",
-		slog.String("stock_code", stockCode),
-		slog.String("chatroom_id", chatroomID))
+	slog.Info("published bot command",
+		slog.String("type", cmd.Type),
+		slog.String("chatroom_id", cmd.ChatroomID))
 	return nil
+}
+
+// PublishStockCommand publishes a stock command request
+func (r *RabbitMQ) PublishStockCommand(ctx context.Context, chatroomID, stockCode, requestedBy string) error {
+	cmd := &BotCommand{
+		Type:        "stock",
+		ChatroomID:  chatroomID,
+		StockCode:   stockCode,
+		RequestedBy: requestedBy,
+		Timestamp:   time.Now().Unix(),
+	}
+	return r.PublishCommand(ctx, cmd)
+}
+
+// PublishHelloCommand publishes a hello command request
+func (r *RabbitMQ) PublishHelloCommand(ctx context.Context, chatroomID, requestedBy string) error {
+	cmd := &BotCommand{
+		Type:        "hello",
+		ChatroomID:  chatroomID,
+		RequestedBy: requestedBy,
+		Timestamp:   time.Now().Unix(),
+	}
+	return r.PublishCommand(ctx, cmd)
 }
 
 // PublishStockResponse publishes a stock quote response

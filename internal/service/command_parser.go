@@ -6,6 +6,7 @@ import (
 )
 
 var stockCommandRegex = regexp.MustCompile(`^/stock=([a-zA-Z0-9.]{1,20})$`)
+var helloCommandRegex = regexp.MustCompile(`^/hello$`)
 
 // Command represents a parsed command
 type Command struct {
@@ -23,6 +24,13 @@ func ParseCommand(content string) (*Command, bool) {
 		return &Command{
 			Type:      "stock",
 			StockCode: strings.ToUpper(matches[1]),
+		}, true
+	}
+
+	// Check for hello command
+	if helloCommandRegex.MatchString(content) {
+		return &Command{
+			Type: "hello",
 		}, true
 	}
 

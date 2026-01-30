@@ -47,6 +47,7 @@ type Client struct {
 // MessagePublisher defines the interface for publishing messages to RabbitMQ
 type MessagePublisher interface {
 	PublishStockCommand(ctx context.Context, chatroomID, stockCode, requestedBy string) error
+	PublishHelloCommand(ctx context.Context, chatroomID, requestedBy string) error
 }
 
 // ClientMessage represents a message from the client
@@ -154,21 +155,34 @@ func (c *Client) ReadPump() {
 
 		// Check if command
 		if cmd, isCommand := service.ParseCommand(clientMsg.Content); isCommand {
-			// Publish stock command to RabbitMQ (don't save to database)
+			// Publish command to RabbitMQ (don't save to database)
 			func() {
 				ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
 				defer cancel()
 
-				if err := c.publisher.PublishStockCommand(ctx, c.chatroomID, cmd.StockCode, c.username); err != nil {
-					slog.Error("error publishing stock command",
+				var err error
+				switch cmd.Type {
+				case "stock":
+					err = c.publisher.PublishStockCommand(ctx, c.chatroomID, cmd.StockCode, c.username)
+				case "hello":
+					err = c.publisher.PublishHelloCommand(ctx, c.chatroomID, c.username)
+				default:
+					slog.Warn("unknown command type",
+						slog.String("type", cmd.Type),
+						slog.String("user", c.username))
+					return
+				}
+
+				if err != nil {
+					slog.Error("error publishing command",
 						slog.String("error", err.Error()),
-						slog.String("stock_code", cmd.StockCode),
+						slog.String("type", cmd.Type),
 						slog.String("user", c.username))
 
 					// Send error message to client
 					errorMsg := ServerMessage{
 						Type:    "error",
-						Message: "Failed to process stock command",
+						Message: "Failed to process command",
 					}
 					if data, err := json.Marshal(errorMsg); err == nil {
 						c.send <- data

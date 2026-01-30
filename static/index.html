@@ -645,6 +645,9 @@
             cursor: pointer;
             transition: background 0.15s;
             border-bottom: 1px solid var(--color-border-glass);
+            position: relative;
+            display: flex;
+            flex-direction: column;
         }
 
         .command-item:last-child {
@@ -657,9 +660,17 @@
 
         .command-item.selected {
             background: var(--color-bg-glass);
-            border: 2px solid var(--color-accent-bot);
-            border-radius: 8px;
-            margin: -1px;
+        }
+
+        .command-item.selected::after {
+            content: '→';
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            color: var(--color-text-primary);
+            font-weight: bold;
         }
 
         .command-name {
@@ -999,6 +1010,10 @@
                             <div class="command-item" data-command="/stock=" data-index="0">
                                 <div class="command-name">/stock=</div>
                                 <div class="command-description">Get stock quote (e.g., /stock=AAPL.US)</div>
+                            </div>
+                            <div class="command-item" data-command="/hello" data-index="1">
+                                <div class="command-name">/hello</div>
+                                <div class="command-description">Receive a zen phrase from the bot</div>
                             </div>
                         </div>
                         <textarea
