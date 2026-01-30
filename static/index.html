@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
     <title>Jobsity Chat</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -180,7 +181,7 @@
             font-weight: 600;
             font-family: var(--font-base);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.2s, border-color 0.2s;
         }
 
         .logout-btn:hover {
@@ -237,7 +238,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s;
+            transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
         }
 
         .create-room-btn:hover {
@@ -259,7 +260,7 @@
             border: 1px solid var(--color-border-glass);
             border-radius: 12px;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .chatroom-item:hover {
@@ -619,6 +620,63 @@
             }
         }
 
+        /* Command Autocomplete */
+        .command-autocomplete {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            margin-bottom: 8px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-glass);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            display: none;
+            animation: fade-in-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .command-autocomplete.show {
+            display: block;
+        }
+
+        .command-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.15s;
+            border-bottom: 1px solid var(--color-border-glass);
+        }
+
+        .command-item:last-child {
+            border-bottom: none;
+        }
+
+        .command-item:hover,
+        .command-item.selected {
+            background: var(--color-bg-glass);
+        }
+
+        .command-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-accent-bot);
+            margin-bottom: 4px;
+        }
+
+        .command-description {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+        }
+
+        .command-name .matched {
+            color: var(--color-accent-bot);
+            padding: 0 2px;
+        }
+
+        .command-name .unmatched {
+            opacity: 0.6;
+        }
+
         #message-input {
             width: 100%;
             padding: 14px 16px;
@@ -630,7 +688,7 @@
             color: var(--color-text-primary);
             resize: none;
             max-height: 120px;
-            transition: all 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         #message-input::placeholder {
@@ -655,7 +713,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
             flex-shrink: 0;
         }
@@ -778,7 +836,7 @@
             font-weight: 600;
             font-family: var(--font-base);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.2s, border-color 0.2s;
         }
 
         .modal-btn-primary {
@@ -931,6 +989,12 @@
                         <div class="command-indicator" id="command-indicator">
                             📊 Stock command detected
                         </div>
+                        <div class="command-autocomplete" id="command-autocomplete">
+                            <div class="command-item" data-command="/stock=" data-index="0">
+                                <div class="command-name">/stock=</div>
+                                <div class="command-description">Get stock quote (e.g., /stock=AAPL.US)</div>
+                            </div>
+                        </div>
                         <textarea
                             id="message-input"
                             placeholder="Type a message... (use /stock=AAPL.US for stock quotes)"
@@ -988,6 +1052,11 @@
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 5;
         const RECONNECT_DELAY = 3000;
+
+        // Infinite scroll state
+        let isLoadingMoreMessages = false;
+        let hasMoreMessages = true;
+        let oldestMessageTimestamp = null;
 
         // DOM elements
         const sidebar = document.getElementById('sidebar');
@@ -1112,6 +1181,11 @@
             currentRoomMembers.textContent = '';
             messagesContainer.innerHTML = '';
             sendBtn.disabled = true; // Keep disabled until WebSocket connects
+
+            // Reset infinite scroll state
+            isLoadingMoreMessages = false;
+            hasMoreMessages = true;
+            oldestMessageTimestamp = null;
 
             // Close mobile sidebar
             if (window.innerWidth <= 768) {
@@ -1349,11 +1423,115 @@
                 messages[0].remove();
             }
 
+            // Track oldest message timestamp for pagination (before scroll)
+            if (!oldestMessageTimestamp || messageDate < new Date(oldestMessageTimestamp)) {
+                oldestMessageTimestamp = message.timestamp || message.created_at;
+            }
+
             // Smooth scroll to bottom
             messagesContainer.scrollTo({
                 top: messagesContainer.scrollHeight,
                 behavior: 'smooth'
             });
+        }
+
+        // Load more messages (infinite scroll)
+        async function loadMoreMessages() {
+            if (isLoadingMoreMessages || !hasMoreMessages || !currentRoom || !oldestMessageTimestamp) {
+                return;
+            }
+
+            isLoadingMoreMessages = true;
+
+            try {
+                const response = await fetch(`/api/v1/chatrooms/${currentRoom.id}/messages?limit=50&before=${oldestMessageTimestamp}`, {
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.messages && data.messages.length > 0) {
+                        // Save current scroll position
+                        const previousScrollHeight = messagesContainer.scrollHeight;
+                        const previousScrollTop = messagesContainer.scrollTop;
+
+                        // Insert messages at the beginning (in chronological order)
+                        data.messages.forEach(msg => {
+                            const messageDate = new Date(msg.created_at);
+                            const now = new Date();
+                            const hoursDiff = (now - messageDate) / (1000 * 60 * 60);
+
+                            let timeDisplay;
+                            if (hoursDiff > 24) {
+                                timeDisplay = messageDate.toLocaleDateString([], {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                            } else {
+                                timeDisplay = messageDate.toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                            }
+
+                            const isBot = msg.username === 'StockBot' || msg.username === 'stock_bot' || msg.is_bot;
+                            const isError = msg.is_error === true;
+
+                            const messageEl = document.createElement('div');
+                            messageEl.className = `message ${isBot ? 'bot' : ''} ${isError ? 'error' : ''}`;
+
+                            const warningIcon = `
+                                <svg class="warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                </svg>
+                            `;
+
+                            let messageContent = `
+                                <div class="message-avatar">${isBot ? '🤖' : (msg.username || 'U')[0].toUpperCase()}</div>
+                                <div class="message-content">
+                                    <div class="message-header">
+                                        <span class="message-author">${escapeHtml(msg.username || 'Anonymous')}</span>
+                                        <span class="message-time">${timeDisplay}</span>
+                                    </div>
+                                    <div class="message-text">
+                                        ${isError ? warningIcon : ''}
+                                        <span>${escapeHtml(msg.content)}</span>
+                                    </div>
+                                </div>
+                            `;
+
+                            messageEl.innerHTML = messageContent;
+
+                            // Insert at the beginning
+                            messagesContainer.insertBefore(messageEl, messagesContainer.firstChild);
+
+                            // Update oldest timestamp
+                            if (!oldestMessageTimestamp || messageDate < new Date(oldestMessageTimestamp)) {
+                                oldestMessageTimestamp = msg.created_at;
+                            }
+                        });
+
+                        // Maintain scroll position
+                        const newScrollHeight = messagesContainer.scrollHeight;
+                        messagesContainer.scrollTop = previousScrollTop + (newScrollHeight - previousScrollHeight);
+
+                        // If we got fewer than 50 messages, there are no more to load
+                        if (data.messages.length < 50) {
+                            hasMoreMessages = false;
+                        }
+                    } else {
+                        hasMoreMessages = false;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load more messages:', error);
+            } finally {
+                isLoadingMoreMessages = false;
+            }
         }
 
         // Send message
@@ -1384,6 +1562,76 @@
                 commandIndicator.classList.add('show');
             } else {
                 commandIndicator.classList.remove('show');
+            }
+        }
+
+        // Command autocomplete state
+        let selectedCommandIndex = 0;
+        const commandAutocomplete = document.getElementById('command-autocomplete');
+        const commandItems = document.querySelectorAll('.command-item');
+
+        // Check and show command autocomplete
+        function checkCommandAutocomplete() {
+            const content = messageInput.value;
+
+            // Only show autocomplete for commands (starting with / but not completed)
+            if (!content.startsWith('/') || content.includes('=')) {
+                commandAutocomplete.classList.remove('show');
+                return;
+            }
+
+            // Filter and highlight matching commands
+            let hasMatches = false;
+
+            commandItems.forEach((item) => {
+                const command = item.dataset.command;
+                const commandNameEl = item.querySelector('.command-name');
+
+                // Check if user input matches the beginning of the command
+                if (command.toLowerCase().startsWith(content.toLowerCase())) {
+                    hasMatches = true;
+                    item.style.display = 'block';
+
+                    // Highlight matching part
+                    const matchedPart = command.substring(0, content.length);
+                    const unmatchedPart = command.substring(content.length);
+
+                    commandNameEl.innerHTML = `<span class="matched">${escapeHtml(matchedPart)}</span><span class="unmatched">${escapeHtml(unmatchedPart)}</span>`;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+
+            // Show/hide autocomplete based on matches
+            if (hasMatches && content.length > 0) {
+                commandAutocomplete.classList.add('show');
+                selectedCommandIndex = 0;
+                updateCommandSelection();
+            } else {
+                commandAutocomplete.classList.remove('show');
+            }
+        }
+
+        // Update command selection visual
+        function updateCommandSelection() {
+            commandItems.forEach((item, index) => {
+                if (index === selectedCommandIndex) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+        }
+
+        // Select command
+        function selectCommand() {
+            const selectedItem = commandItems[selectedCommandIndex];
+            if (selectedItem) {
+                const command = selectedItem.dataset.command;
+                messageInput.value = command;
+                commandAutocomplete.classList.remove('show');
+                messageInput.focus();
+                checkStockCommand();
             }
         }
 
@@ -1491,18 +1739,93 @@
                 messageInput.style.height = 'auto';
                 messageInput.style.height = messageInput.scrollHeight + 'px';
 
+                // Check for command autocomplete
+                checkCommandAutocomplete();
+
                 // Check for stock command
                 checkStockCommand();
             });
 
             messageInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                // Handle Ctrl+N (next) and Ctrl+P (previous) for dropdown navigation
+                if ((e.ctrlKey && e.key === 'n') || (e.ctrlKey && e.key === 'p')) {
+                    const content = messageInput.value;
+
+                    // Only activate if typing a command
+                    if (content.startsWith('/') && !content.includes('=')) {
+                        e.preventDefault();
+
+                        // Show dropdown if not visible
+                        if (!commandAutocomplete.classList.contains('show')) {
+                            checkCommandAutocomplete();
+                        }
+
+                        // Navigate if dropdown is visible
+                        if (commandAutocomplete.classList.contains('show')) {
+                            if (e.key === 'n') {
+                                // Ctrl+N: next (down)
+                                selectedCommandIndex = Math.min(selectedCommandIndex + 1, commandItems.length - 1);
+                            } else {
+                                // Ctrl+P: previous (up)
+                                selectedCommandIndex = Math.max(selectedCommandIndex - 1, 0);
+                            }
+
+                            updateCommandSelection();
+                            return;
+                        }
+                    }
+                }
+
+                // Handle autocomplete navigation
+                if (commandAutocomplete.classList.contains('show')) {
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        selectedCommandIndex = Math.min(selectedCommandIndex + 1, commandItems.length - 1);
+                        updateCommandSelection();
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        selectedCommandIndex = Math.max(selectedCommandIndex - 1, 0);
+                        updateCommandSelection();
+                    } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+                        e.preventDefault();
+                        selectCommand();
+                        return;
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        commandAutocomplete.classList.remove('show');
+                        return;
+                    }
+                }
+
+                // Send message on Enter (without shift)
+                if (e.key === 'Enter' && !e.shiftKey && !commandAutocomplete.classList.contains('show')) {
                     e.preventDefault();
                     sendMessage();
                 }
             });
 
             sendBtn.addEventListener('click', sendMessage);
+
+            // Command item click handlers
+            commandItems.forEach((item, index) => {
+                item.addEventListener('click', () => {
+                    selectedCommandIndex = index;
+                    selectCommand();
+                });
+
+                item.addEventListener('mouseenter', () => {
+                    selectedCommandIndex = index;
+                    updateCommandSelection();
+                });
+            });
+
+            // Infinite scroll listener
+            messagesContainer.addEventListener('scroll', () => {
+                // If scrolled near the top (within 100px), load more messages
+                if (messagesContainer.scrollTop < 100) {
+                    loadMoreMessages();
+                }
+            });
 
             // Cleanup on page unload
             window.addEventListener('beforeunload', () => {
