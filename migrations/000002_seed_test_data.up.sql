@@ -1,11 +1,11 @@
--- Insert test users (password for all: "password123")
+-- Insert test users (password for all: "strange!")
 -- Bcrypt hash generated with cost 10
 INSERT INTO users (id, username, email, password_hash, created_at) VALUES
-    ('11111111-1111-1111-1111-111111111111', 'alice', 'alice@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', NOW()),
-    ('22222222-2222-2222-2222-222222222222', 'bob', 'bob@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', NOW()),
-    ('33333333-3333-3333-3333-333333333333', 'charlie', 'charlie@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', NOW()),
-    ('44444444-4444-4444-4444-444444444444', 'diana', 'diana@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', NOW()),
-    ('55555555-5555-5555-5555-555555555555', 'eve', 'eve@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', NOW())
+    ('11111111-1111-1111-1111-111111111111', 'daniel', 'daniel@test.com', '$2a$10$JKgx8VGMuMXHwLaHbbI4G.6vlU/9TSR3R7deCAAWbu8CpHT/.1p/e', NOW()),
+    ('22222222-2222-2222-2222-222222222222', 'bob', 'bob@test.com', '$2a$10$JKgx8VGMuMXHwLaHbbI4G.6vlU/9TSR3R7deCAAWbu8CpHT/.1p/e', NOW()),
+    ('33333333-3333-3333-3333-333333333333', 'charlie', 'charlie@test.com', '$2a$10$JKgx8VGMuMXHwLaHbbI4G.6vlU/9TSR3R7deCAAWbu8CpHT/.1p/e', NOW()),
+    ('44444444-4444-4444-4444-444444444444', 'diana', 'diana@test.com', '$2a$10$JKgx8VGMuMXHwLaHbbI4G.6vlU/9TSR3R7deCAAWbu8CpHT/.1p/e', NOW()),
+    ('55555555-5555-5555-5555-555555555555', 'eve', 'eve@test.com', '$2a$10$JKgx8VGMuMXHwLaHbbI4G.6vlU/9TSR3R7deCAAWbu8CpHT/.1p/e', NOW())
 ON CONFLICT (username) DO NOTHING;
 
 -- Insert default chatrooms
@@ -41,7 +41,7 @@ ON CONFLICT (user_id, chatroom_id) DO NOTHING;
 -- Insert some sample messages
 INSERT INTO messages (chatroom_id, user_id, content, is_bot, created_at) VALUES
     ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'Hey everyone! 👋', false, NOW() - INTERVAL '5 minutes'),
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'Hi Alice! How are you doing?', false, NOW() - INTERVAL '4 minutes'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'Hi Daniel! How are you doing?', false, NOW() - INTERVAL '4 minutes'),
     ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 'Welcome! Try the /stock command to get stock quotes', false, NOW() - INTERVAL '3 minutes'),
     ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'Thanks! Let me try: /stock=AAPL.US', false, NOW() - INTERVAL '2 minutes'),
     ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'Anyone here?', false, NOW() - INTERVAL '10 minutes'),
