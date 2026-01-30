@@ -25,5 +25,5 @@ type SessionRepository interface {
 	Create(ctx context.Context, session *Session) error
 	GetByToken(ctx context.Context, token string) (*Session, error)
 	Delete(ctx context.Context, token string) error
-	DeleteExpired(ctx context.Context) error
+	DeleteExpired(ctx context.Context) (int64, error)
 }

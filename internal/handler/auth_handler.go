@@ -66,12 +66,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, domain.ErrInvalidInput):
 			status = http.StatusBadRequest
 			message = "Invalid input"
-		case errors.Is(err, domain.ErrUsernameExists):
+		case errors.Is(err, domain.ErrUsernameExists), errors.Is(err, domain.ErrEmailExists):
 			status = http.StatusConflict
-			message = "Username already exists"
-		case errors.Is(err, domain.ErrEmailExists):
-			status = http.StatusConflict
-			message = "Email already exists"
+			message = "User already exists"
+			slog.Info("registration failed: user exists",
+				slog.String("username", req.Username),
+				slog.String("email", req.Email))
 		default:
 			status = http.StatusInternalServerError
 			message = "Internal server error"
