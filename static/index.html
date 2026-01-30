@@ -651,9 +651,15 @@
             border-bottom: none;
         }
 
-        .command-item:hover,
+        .command-item:hover {
+            background: var(--color-bg-glass);
+        }
+
         .command-item.selected {
             background: var(--color-bg-glass);
+            border: 2px solid var(--color-accent-bot);
+            border-radius: 8px;
+            margin: -1px;
         }
 
         .command-name {
@@ -1228,6 +1234,9 @@
 
             // Connect WebSocket
             connectWebSocket(roomId);
+
+            // Focus message input for immediate typing
+            messageInput.focus();
         }
 
         // Get session token from sessionStorage (saved during login)
