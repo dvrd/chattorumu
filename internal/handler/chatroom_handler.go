@@ -1,13 +1,13 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/middleware"
-	"jobsity-chat/internal/service"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -18,14 +18,25 @@ type HubInterface interface {
 	GetAllConnectedCounts() map[string]int
 }
 
+// ChatServiceInterface defines the interface for chat operations
+type ChatServiceInterface interface {
+	CreateChatroom(ctx context.Context, name, createdBy string) (*domain.Chatroom, error)
+	ListChatrooms(ctx context.Context) ([]*domain.Chatroom, error)
+	JoinChatroom(ctx context.Context, chatroomID, userID string) error
+	IsMember(ctx context.Context, chatroomID, userID string) (bool, error)
+	GetMessages(ctx context.Context, chatroomID string, limit int) ([]*domain.Message, error)
+	GetMessagesBefore(ctx context.Context, chatroomID, before string, limit int) ([]*domain.Message, error)
+	SendMessage(ctx context.Context, message *domain.Message) error
+}
+
 // ChatroomHandler handles chatroom endpoints
 type ChatroomHandler struct {
-	chatService *service.ChatService
+	chatService ChatServiceInterface
 	hub         HubInterface
 }
 
 // NewChatroomHandler creates a new chatroom handler
-func NewChatroomHandler(chatService *service.ChatService, hub HubInterface) *ChatroomHandler {
+func NewChatroomHandler(chatService ChatServiceInterface, hub HubInterface) *ChatroomHandler {
 	return &ChatroomHandler{
 		chatService: chatService,
 		hub:         hub,

@@ -85,11 +85,62 @@ Copy `.env.example` to `.env` and configure:
 
 - `POST /api/v1/auth/register` - Register new user
 - `POST /api/v1/auth/login` - Login user
+- `GET /api/v1/auth/me` - Get current user info
 - `POST /api/v1/auth/logout` - Logout user
 - `GET /api/v1/chatrooms` - List chatrooms
 - `POST /api/v1/chatrooms` - Create chatroom
+- `POST /api/v1/chatrooms/{id}/join` - Join chatroom
 - `GET /api/v1/chatrooms/{id}/messages` - Get last 50 messages
 - `WS /ws/chat/{chatroom_id}` - WebSocket connection for real-time chat
+
+## API Documentation
+
+### Interactive Swagger UI
+
+The API is fully documented with OpenAPI 3.0 specification. You can explore and test all endpoints using Swagger UI.
+
+#### Using Docker Compose (Recommended)
+
+```bash
+# Start all services including Swagger UI
+docker-compose -f containers/docker-compose.yml up -d
+
+# Access Swagger UI
+open http://localhost:8081
+```
+
+The Swagger UI will automatically load the OpenAPI specification from `artifacts/openapi.yaml` and provide:
+- 📖 Complete API documentation with examples
+- 🧪 Interactive endpoint testing (try it out!)
+- 📋 Request/response schemas
+- 🔐 Authentication testing with session cookies
+
+#### Using Docker Standalone
+
+If you only want to run Swagger UI:
+
+```bash
+docker run -p 8081:8080 \
+  -e SWAGGER_JSON=/api/openapi.yaml \
+  -v $(pwd)/artifacts:/api \
+  swaggerapi/swagger-ui
+```
+
+Then visit: http://localhost:8081
+
+#### OpenAPI Specification
+
+The complete OpenAPI spec is available at `artifacts/openapi.yaml` and includes:
+- All 10 REST endpoints + WebSocket documentation
+- Request/response schemas with examples
+- Authentication requirements (session-based cookies)
+- Error responses and status codes
+- Full validation with automatic runtime checks (dev mode)
+
+**Services URLs:**
+- 🌐 Chat Application: http://localhost:8080
+- 📖 Swagger UI: http://localhost:8081
+- 🐰 RabbitMQ Management: http://localhost:15672 (guest/guest)
 
 ## Stock Command
 

@@ -110,6 +110,7 @@ func main() {
 	r.Use(chimiddleware.RealIP)
 	r.Use(middleware.CORS(middleware.ParseOrigins(cfg.AllowedOrigins)))
 	r.Use(middleware.Metrics()) // Prometheus metrics
+	r.Use(middleware.OpenAPIValidator(middleware.DefaultOpenAPIValidatorConfig())) // OpenAPI validation
 
 	// Health checks and metrics
 	r.Get("/health", handler.Health)
