@@ -100,7 +100,12 @@ func (c *Client) ReadPump() {
 			Type:     "user_left",
 			Username: c.username,
 		}
-		if data, err := json.Marshal(leftMsg); err == nil {
+		data, err := json.Marshal(leftMsg)
+		if err != nil {
+			slog.Error("failed to marshal user left message",
+				slog.String("error", err.Error()),
+				slog.String("username", c.username))
+		} else {
 			c.hub.Broadcast(c.chatroomID, data)
 		}
 	}()
@@ -129,7 +134,12 @@ func (c *Client) ReadPump() {
 		Type:     "user_joined",
 		Username: c.username,
 	}
-	if data, err := json.Marshal(joinedMsg); err == nil {
+	data, err := json.Marshal(joinedMsg)
+	if err != nil {
+		slog.Error("failed to marshal user joined message",
+			slog.String("error", err.Error()),
+			slog.String("username", c.username))
+	} else {
 		c.hub.Broadcast(c.chatroomID, data)
 	}
 
@@ -184,7 +194,11 @@ func (c *Client) ReadPump() {
 						Type:    "error",
 						Message: "Failed to process command",
 					}
-					if data, err := json.Marshal(errorMsg); err == nil {
+					data, marshalErr := json.Marshal(errorMsg)
+					if marshalErr != nil {
+						slog.Error("failed to marshal error message",
+							slog.String("error", marshalErr.Error()))
+					} else {
 						c.send <- data
 					}
 				}
@@ -223,7 +237,12 @@ func (c *Client) ReadPump() {
 			CreatedAt: msg.CreatedAt,
 		}
 
-		if data, err := json.Marshal(serverMsg); err == nil {
+		data, err := json.Marshal(serverMsg)
+		if err != nil {
+			slog.Error("failed to marshal chat message",
+				slog.String("error", err.Error()),
+				slog.String("message_id", msg.ID))
+		} else {
 			c.hub.Broadcast(c.chatroomID, data)
 		}
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"jobsity-chat/internal/config"
+	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/handler"
 	"jobsity-chat/internal/messaging"
 	"jobsity-chat/internal/middleware"
@@ -40,13 +42,21 @@ func main() {
 
 	slog.Info("starting chat server")
 
-	// Connect to database
+	// Connect to database with timeout
+	connCtx, connCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	db, err := config.NewPostgresConnection(cfg.DatabaseURL)
+	connCancel()
 	if err != nil {
 		slog.Error("failed to connect to database", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	// Verify connection with timeout
+	if err := db.PingContext(connCtx); err != nil {
+		slog.Error("database ping failed", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 	slog.Info("connected to postgresql")
 
 	// Connect to RabbitMQ
@@ -95,6 +105,10 @@ func main() {
 	}
 	slog.Info("response consumer started")
 
+	// Start session cleanup task
+	go startSessionCleanup(ctx, sessionRepo)
+	slog.Info("session cleanup task started")
+
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
 	chatroomHandler := handler.NewChatroomHandler(chatService, hub)
@@ -110,7 +124,7 @@ func main() {
 	r.Use(chimiddleware.RealIP)
 	r.Use(middleware.CORS(middleware.ParseOrigins(cfg.AllowedOrigins)))
 	r.Use(middleware.Metrics()) // Prometheus metrics
-	r.Use(middleware.OpenAPIValidator(middleware.DefaultOpenAPIValidatorConfig())) // OpenAPI validation
+	// r.Use(middleware.OpenAPIValidator(middleware.DefaultOpenAPIValidatorConfig())) // OpenAPI validation (TODO: implement)
 
 	// Health checks and metrics
 	r.Get("/health", handler.Health)
@@ -219,29 +233,61 @@ func main() {
 	slog.Info("server stopped gracefully")
 }
 
-// ensureBotUser creates a bot user if it doesn't exist
+// ensureBotUser creates a bot user if it doesn't exist (idempotent)
 func ensureBotUser(authService *service.AuthService) string {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	// Try to get existing bot user by username
-	botUser, err := authService.GetUserByUsername(ctx, "StockBot")
-	if err == nil {
-		slog.Info("bot user already exists",
+	// Try to create user first (optimistic approach)
+	botUser, err := authService.Register(ctx, "StockBot", "bot@jobsity.com", "bot-password-not-used")
+
+	switch {
+	case err == nil:
+		// Successfully created new bot user
+		slog.Info("created bot user",
 			slog.String("username", botUser.Username),
 			slog.String("id", botUser.ID))
 		return botUser.ID
-	}
 
-	// Create bot user if it doesn't exist
-	botUser, err = authService.Register(ctx, "StockBot", "bot@jobsity.com", "bot-password-not-used")
-	if err != nil {
-		slog.Error("failed to create bot user", slog.String("error", err.Error()))
-		// If we can't create or find the bot, this is a critical error
-		panic("could not initialize stock bot user")
-	}
+	case errors.Is(err, domain.ErrUsernameExists):
+		// User already exists (race condition or previous run), fetch it
+		slog.Info("bot user already exists, fetching")
+		botUser, err := authService.GetUserByUsername(ctx, "StockBot")
+		if err != nil {
+			slog.Error("bot user exists but cannot fetch",
+				slog.String("error", err.Error()))
+			panic("could not initialize stock bot user: " + err.Error())
+		}
+		slog.Info("using existing bot user",
+			slog.String("username", botUser.Username),
+			slog.String("id", botUser.ID))
+		return botUser.ID
 
-	slog.Info("created bot user",
-		slog.String("username", botUser.Username),
-		slog.String("id", botUser.ID))
-	return botUser.ID
+	default:
+		// Unexpected error
+		slog.Error("failed to ensure bot user", slog.String("error", err.Error()))
+		panic("could not initialize stock bot user: " + err.Error())
+	}
+}
+
+// startSessionCleanup runs a background task to delete expired sessions
+func startSessionCleanup(ctx context.Context, repo domain.SessionRepository) {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("stopping session cleanup task")
+			return
+		case <-ticker.C:
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			if err := repo.DeleteExpired(cleanupCtx); err != nil {
+				slog.Error("session cleanup failed", slog.String("error", err.Error()))
+			} else {
+				slog.Info("session cleanup completed")
+			}
+			cancel()
+		}
+	}
 }
