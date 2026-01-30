@@ -10,21 +10,16 @@ import (
 )
 
 const (
-	// Maximum number of limiters to keep in memory
-	maxLimiters = 10000
-	// Time after which an inactive limiter is removed
+	maxLimiters     = 10000
 	cleanupInterval = 5 * time.Minute
-	// Limiter is considered inactive if not used for this duration
-	limiterTTL = 15 * time.Minute
+	limiterTTL      = 15 * time.Minute
 )
 
-// limiterEntry wraps a rate.Limiter with last access time
 type limiterEntry struct {
 	limiter    *rate.Limiter
 	lastAccess time.Time
 }
 
-// RateLimiter provides per-IP rate limiting for HTTP requests with memory management
 type RateLimiter struct {
 	limiters map[string]*limiterEntry
 	mu       sync.RWMutex
@@ -33,9 +28,6 @@ type RateLimiter struct {
 	stopCh   chan struct{}
 }
 
-// NewRateLimiter creates a new rate limiter with automatic cleanup
-// requestsPerSecond: maximum average rate of requests per IP
-// burst: maximum burst size (tokens bucket capacity)
 func NewRateLimiter(requestsPerSecond float64, burst int) *RateLimiter {
 	rl := &RateLimiter{
 		limiters: make(map[string]*limiterEntry),
@@ -44,13 +36,11 @@ func NewRateLimiter(requestsPerSecond float64, burst int) *RateLimiter {
 		stopCh:   make(chan struct{}),
 	}
 
-	// Start background cleanup goroutine
 	go rl.cleanupLoop(context.Background())
 
 	return rl
 }
 
-// cleanupLoop periodically removes inactive limiters to prevent memory leaks
 func (rl *RateLimiter) cleanupLoop(ctx context.Context) {
 	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
@@ -67,7 +57,6 @@ func (rl *RateLimiter) cleanupLoop(ctx context.Context) {
 	}
 }
 
-// cleanup removes limiters that haven't been used recently
 func (rl *RateLimiter) cleanup() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -79,9 +68,7 @@ func (rl *RateLimiter) cleanup() {
 		}
 	}
 
-	// If still over limit, remove oldest entries (LRU eviction)
 	if len(rl.limiters) > maxLimiters {
-		// Find and remove oldest entries
 		type keyTime struct {
 			key  string
 			time time.Time
@@ -91,7 +78,6 @@ func (rl *RateLimiter) cleanup() {
 			entries = append(entries, keyTime{k, e.lastAccess})
 		}
 
-		// Sort by access time and remove oldest
 		for i := 0; i < len(entries)-maxLimiters/2; i++ {
 			oldestKey := entries[0].key
 			oldestTime := entries[0].time
@@ -111,39 +97,31 @@ func (rl *RateLimiter) cleanup() {
 	}
 }
 
-// Stop stops the cleanup goroutine
 func (rl *RateLimiter) Stop() {
 	close(rl.stopCh)
 }
 
-// getLimiter returns the rate limiter for a given key (usually IP address)
-// Creates a new limiter if one doesn't exist and updates last access time
 func (rl *RateLimiter) getLimiter(key string) *rate.Limiter {
-	// Try read lock first for better concurrency
 	rl.mu.RLock()
 	entry, exists := rl.limiters[key]
 	rl.mu.RUnlock()
 
 	if exists {
-		// Update last access time
 		rl.mu.Lock()
 		entry.lastAccess = time.Now()
 		rl.mu.Unlock()
 		return entry.limiter
 	}
 
-	// Need to create new limiter
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	// Double-check after acquiring write lock
 	entry, exists = rl.limiters[key]
 	if exists {
 		entry.lastAccess = time.Now()
 		return entry.limiter
 	}
 
-	// Create new limiter
 	entry = &limiterEntry{
 		limiter:    rate.NewLimiter(rl.rate, rl.burst),
 		lastAccess: time.Now(),
@@ -152,11 +130,9 @@ func (rl *RateLimiter) getLimiter(key string) *rate.Limiter {
 	return entry.limiter
 }
 
-// Middleware returns a chi-compatible middleware function
 func (rl *RateLimiter) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Use remote address as key for per-IP limiting
 			key := r.RemoteAddr
 			limiter := rl.getLimiter(key)
 

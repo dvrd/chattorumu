@@ -10,13 +10,11 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// RabbitMQ manages RabbitMQ connection and operations
 type RabbitMQ struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
 }
 
-// BotCommand represents a generic bot command
 type BotCommand struct {
 	Type        string `json:"type"`         // "stock" or "hello"
 	ChatroomID  string `json:"chatroom_id"`
@@ -25,7 +23,6 @@ type BotCommand struct {
 	Timestamp   int64  `json:"timestamp"`
 }
 
-// StockCommand represents a stock quote request (deprecated, kept for backwards compatibility)
 type StockCommand struct {
 	ChatroomID  string `json:"chatroom_id"`
 	StockCode   string `json:"stock_code"`
@@ -33,7 +30,6 @@ type StockCommand struct {
 	Timestamp   int64  `json:"timestamp"`
 }
 
-// StockResponse represents a stock quote response
 type StockResponse struct {
 	ChatroomID       string  `json:"chatroom_id"`
 	Symbol           string  `json:"symbol"`
@@ -43,7 +39,6 @@ type StockResponse struct {
 	Timestamp        int64   `json:"timestamp"`
 }
 
-// NewRabbitMQ creates a new RabbitMQ connection
 func NewRabbitMQ(url string) (*RabbitMQ, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -61,7 +56,6 @@ func NewRabbitMQ(url string) (*RabbitMQ, error) {
 		channel: ch,
 	}
 
-	// Declare exchanges and queues
 	if err := rmq.Setup(); err != nil {
 		rmq.Close()
 		return nil, err
@@ -70,9 +64,7 @@ func NewRabbitMQ(url string) (*RabbitMQ, error) {
 	return rmq, nil
 }
 
-// Setup declares exchanges and queues
 func (r *RabbitMQ) Setup() error {
-	// Declare commands exchange (topic)
 	if err := r.channel.ExchangeDeclare(
 		"chat.commands", // name
 		"topic",         // type
@@ -85,7 +77,6 @@ func (r *RabbitMQ) Setup() error {
 		return fmt.Errorf("failed to declare commands exchange: %w", err)
 	}
 
-	// Declare responses exchange (fanout)
 	if err := r.channel.ExchangeDeclare(
 		"chat.responses", // name
 		"fanout",         // type
@@ -98,7 +89,6 @@ func (r *RabbitMQ) Setup() error {
 		return fmt.Errorf("failed to declare responses exchange: %w", err)
 	}
 
-	// Declare stock commands queue
 	if _, err := r.channel.QueueDeclare(
 		"stock.commands", // name
 		true,             // durable
@@ -110,7 +100,6 @@ func (r *RabbitMQ) Setup() error {
 		return fmt.Errorf("failed to declare stock.commands queue: %w", err)
 	}
 
-	// Bind stock commands queue to exchange
 	if err := r.channel.QueueBind(
 		"stock.commands", // queue name
 		"stock.request",  // routing key
@@ -125,7 +114,6 @@ func (r *RabbitMQ) Setup() error {
 	return nil
 }
 
-// PublishCommand publishes a generic bot command
 func (r *RabbitMQ) PublishCommand(ctx context.Context, cmd *BotCommand) error {
 	body, err := json.Marshal(cmd)
 	if err != nil {
@@ -134,10 +122,10 @@ func (r *RabbitMQ) PublishCommand(ctx context.Context, cmd *BotCommand) error {
 
 	err = r.channel.PublishWithContext(
 		ctx,
-		"chat.commands", // exchange
-		"stock.request", // routing key (keeping same for backwards compatibility)
-		false,           // mandatory
-		false,           // immediate
+		"chat.commands",
+		"stock.request",
+		false,
+		false,
 		amqp.Publishing{
 			ContentType:  "application/json",
 			Body:         body,
@@ -155,7 +143,6 @@ func (r *RabbitMQ) PublishCommand(ctx context.Context, cmd *BotCommand) error {
 	return nil
 }
 
-// PublishStockCommand publishes a stock command request
 func (r *RabbitMQ) PublishStockCommand(ctx context.Context, chatroomID, stockCode, requestedBy string) error {
 	cmd := &BotCommand{
 		Type:        "stock",
@@ -167,7 +154,6 @@ func (r *RabbitMQ) PublishStockCommand(ctx context.Context, chatroomID, stockCod
 	return r.PublishCommand(ctx, cmd)
 }
 
-// PublishHelloCommand publishes a hello command request
 func (r *RabbitMQ) PublishHelloCommand(ctx context.Context, chatroomID, requestedBy string) error {
 	cmd := &BotCommand{
 		Type:        "hello",
@@ -178,7 +164,6 @@ func (r *RabbitMQ) PublishHelloCommand(ctx context.Context, chatroomID, requeste
 	return r.PublishCommand(ctx, cmd)
 }
 
-// PublishStockResponse publishes a stock quote response
 func (r *RabbitMQ) PublishStockResponse(ctx context.Context, response *StockResponse) error {
 	body, err := json.Marshal(response)
 	if err != nil {
@@ -187,10 +172,10 @@ func (r *RabbitMQ) PublishStockResponse(ctx context.Context, response *StockResp
 
 	err = r.channel.PublishWithContext(
 		ctx,
-		"chat.responses", // exchange
-		"",               // routing key (ignored for fanout)
-		false,            // mandatory
-		false,            // immediate
+		"chat.responses",
+		"",
+		false,
+		false,
 		amqp.Publishing{
 			ContentType:  "application/json",
 			Body:         body,
@@ -208,16 +193,15 @@ func (r *RabbitMQ) PublishStockResponse(ctx context.Context, response *StockResp
 	return nil
 }
 
-// ConsumeStockCommands sets up a consumer for stock commands
 func (r *RabbitMQ) ConsumeStockCommands() (<-chan amqp.Delivery, error) {
 	msgs, err := r.channel.Consume(
-		"stock.commands", // queue
-		"",               // consumer
-		false,            // auto-ack (false for manual ack)
-		false,            // exclusive
-		false,            // no-local
-		false,            // no-wait
-		nil,              // args
+		"stock.commands",
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register consumer: %w", err)
@@ -228,58 +212,10 @@ func (r *RabbitMQ) ConsumeStockCommands() (<-chan amqp.Delivery, error) {
 	return msgs, nil
 }
 
-// ConsumeStockResponses sets up a consumer for stock responses
-func (r *RabbitMQ) ConsumeStockResponses(chatroomID string) (<-chan amqp.Delivery, error) {
-	// Declare a unique queue for this chatroom
-	queueName := fmt.Sprintf("stock.responses.%s", chatroomID)
-	queue, err := r.channel.QueueDeclare(
-		queueName, // name
-		false,     // durable
-		true,      // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		nil,       // arguments
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to declare response queue: %w", err)
-	}
-
-	// Bind to responses exchange
-	if err := r.channel.QueueBind(
-		queue.Name,       // queue name
-		"",               // routing key
-		"chat.responses", // exchange
-		false,
-		nil,
-	); err != nil {
-		return nil, fmt.Errorf("failed to bind response queue: %w", err)
-	}
-
-	msgs, err := r.channel.Consume(
-		queue.Name, // queue
-		"",         // consumer
-		true,       // auto-ack
-		false,      // exclusive
-		false,      // no-local
-		false,      // no-wait
-		nil,        // args
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to register consumer: %w", err)
-	}
-
-	slog.Info("started consuming stock responses",
-		slog.String("chatroom_id", chatroomID),
-		slog.String("queue", queueName))
-	return msgs, nil
-}
-
-// IsClosed returns true if the connection is closed
 func (r *RabbitMQ) IsClosed() bool {
 	return r.conn == nil || r.conn.IsClosed()
 }
 
-// Close closes the RabbitMQ connection
 func (r *RabbitMQ) Close() error {
 	if r.channel != nil {
 		r.channel.Close()

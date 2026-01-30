@@ -5,13 +5,11 @@ import (
 	"strings"
 )
 
-// CORS creates a CORS middleware
 func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
 
-			// Check if origin is allowed
 			allowed := false
 			for _, o := range allowedOrigins {
 				if o == origin || o == "*" {
@@ -27,7 +25,6 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			}
 
-			// Handle preflight request
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
@@ -38,7 +35,6 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 	}
 }
 
-// ParseOrigins parses comma-separated origins string
 func ParseOrigins(originsStr string) []string {
 	origins := strings.Split(originsStr, ",")
 	for i, origin := range origins {

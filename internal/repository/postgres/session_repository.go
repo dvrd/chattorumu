@@ -9,17 +9,14 @@ import (
 	"jobsity-chat/internal/domain"
 )
 
-// SessionRepository implements domain.SessionRepository for PostgreSQL
 type SessionRepository struct {
 	db *sql.DB
 }
 
-// NewSessionRepository creates a new PostgreSQL session repository
 func NewSessionRepository(db *sql.DB) *SessionRepository {
 	return &SessionRepository{db: db}
 }
 
-// Create inserts a new session into the database
 func (r *SessionRepository) Create(ctx context.Context, session *domain.Session) error {
 	query := `
 		INSERT INTO sessions (user_id, token, expires_at)
@@ -38,7 +35,6 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 	return nil
 }
 
-// GetByToken retrieves a session by token
 func (r *SessionRepository) GetByToken(ctx context.Context, token string) (*domain.Session, error) {
 	query := `
 		SELECT id, user_id, token, expires_at, created_at
@@ -62,7 +58,6 @@ func (r *SessionRepository) GetByToken(ctx context.Context, token string) (*doma
 	return session, nil
 }
 
-// Delete removes a session by token
 func (r *SessionRepository) Delete(ctx context.Context, token string) error {
 	query := `DELETE FROM sessions WHERE token = $1`
 	_, err := r.db.ExecContext(ctx, query, token)
@@ -72,7 +67,6 @@ func (r *SessionRepository) Delete(ctx context.Context, token string) error {
 	return nil
 }
 
-// DeleteExpired removes all expired sessions
 func (r *SessionRepository) DeleteExpired(ctx context.Context) error {
 	query := `DELETE FROM sessions WHERE expires_at <= $1`
 	_, err := r.db.ExecContext(ctx, query, time.Now())

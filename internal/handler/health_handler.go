@@ -10,7 +10,6 @@ import (
 	"jobsity-chat/internal/messaging"
 )
 
-// Health returns basic health check
 func Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -18,21 +17,18 @@ func Health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HealthCheckResult represents the result of a health check
 type HealthCheckResult struct {
-	Status    string                 `json:"status"`
-	LatencyMs int64                  `json:"latency_ms,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
-	Error     string                 `json:"error,omitempty"`
+	Status    string        `json:"status"`
+	LatencyMs int64         `json:"latency_ms,omitempty"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
+	Error     string        `json:"error,omitempty"`
 }
 
-// Ready returns readiness check with dependencies
 func Ready(db *sql.DB, rmq *messaging.RabbitMQ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		// Check dependencies in parallel
 		dbResult := make(chan HealthCheckResult, 1)
 		rmqResult := make(chan HealthCheckResult, 1)
 
@@ -47,7 +43,7 @@ func Ready(db *sql.DB, rmq *messaging.RabbitMQ) http.HandlerFunc {
 		dbCheck := <-dbResult
 		rmqCheck := <-rmqResult
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"timestamp": time.Now().Format(time.RFC3339),
 			"checks": map[string]HealthCheckResult{
 				"database": dbCheck,
@@ -71,7 +67,6 @@ func Ready(db *sql.DB, rmq *messaging.RabbitMQ) http.HandlerFunc {
 	}
 }
 
-// checkDatabase verifies database connectivity
 func checkDatabase(ctx context.Context, db *sql.DB) HealthCheckResult {
 	start := time.Now()
 	err := db.PingContext(ctx)
@@ -90,7 +85,7 @@ func checkDatabase(ctx context.Context, db *sql.DB) HealthCheckResult {
 	return HealthCheckResult{
 		Status:    "up",
 		LatencyMs: latency.Milliseconds(),
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"connections_open":   stats.OpenConnections,
 			"connections_in_use": stats.InUse,
 			"connections_idle":   stats.Idle,
@@ -99,8 +94,7 @@ func checkDatabase(ctx context.Context, db *sql.DB) HealthCheckResult {
 	}
 }
 
-// checkRabbitMQ verifies RabbitMQ connectivity
-func checkRabbitMQ(ctx context.Context, rmq *messaging.RabbitMQ) HealthCheckResult {
+func checkRabbitMQ(_ context.Context, rmq *messaging.RabbitMQ) HealthCheckResult {
 	start := time.Now()
 
 	if rmq.IsClosed() {

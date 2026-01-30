@@ -8,13 +8,11 @@ import (
 	"jobsity-chat/internal/domain"
 )
 
-// ChatroomRepository implements domain.ChatroomRepository for PostgreSQL
 type ChatroomRepository struct {
 	db *sql.DB
 	tm *TxManager
 }
 
-// NewChatroomRepository creates a new PostgreSQL chatroom repository
 func NewChatroomRepository(db *sql.DB) *ChatroomRepository {
 	return &ChatroomRepository{
 		db: db,
@@ -22,7 +20,6 @@ func NewChatroomRepository(db *sql.DB) *ChatroomRepository {
 	}
 }
 
-// Create inserts a new chatroom into the database
 func (r *ChatroomRepository) Create(ctx context.Context, chatroom *domain.Chatroom) error {
 	query := `
 		INSERT INTO chatrooms (name, created_by)
@@ -40,7 +37,6 @@ func (r *ChatroomRepository) Create(ctx context.Context, chatroom *domain.Chatro
 	return nil
 }
 
-// GetByID retrieves a chatroom by ID
 func (r *ChatroomRepository) GetByID(ctx context.Context, id string) (*domain.Chatroom, error) {
 	query := `
 		SELECT id, name, created_at, created_by
@@ -63,7 +59,6 @@ func (r *ChatroomRepository) GetByID(ctx context.Context, id string) (*domain.Ch
 	return chatroom, nil
 }
 
-// List retrieves all chatrooms
 func (r *ChatroomRepository) List(ctx context.Context) ([]*domain.Chatroom, error) {
 	query := `
 		SELECT id, name, created_at, created_by
@@ -99,7 +94,6 @@ func (r *ChatroomRepository) List(ctx context.Context) ([]*domain.Chatroom, erro
 	return chatrooms, nil
 }
 
-// AddMember adds a user to a chatroom
 func (r *ChatroomRepository) AddMember(ctx context.Context, chatroomID, userID string) error {
 	query := `
 		INSERT INTO chatroom_members (chatroom_id, user_id)
@@ -113,7 +107,6 @@ func (r *ChatroomRepository) AddMember(ctx context.Context, chatroomID, userID s
 	return nil
 }
 
-// IsMember checks if a user is a member of a chatroom
 func (r *ChatroomRepository) IsMember(ctx context.Context, chatroomID, userID string) (bool, error) {
 	query := `
 		SELECT EXISTS(
@@ -130,10 +123,8 @@ func (r *ChatroomRepository) IsMember(ctx context.Context, chatroomID, userID st
 }
 
 // CreateWithMember atomically creates a chatroom and adds a member
-// This prevents race conditions where a chatroom exists without any members
 func (r *ChatroomRepository) CreateWithMember(ctx context.Context, chatroom *domain.Chatroom, userID string) error {
 	return r.tm.WithTx(ctx, func(tx *sql.Tx) error {
-		// Create chatroom
 		query := `
 			INSERT INTO chatrooms (name, created_by)
 			VALUES ($1, $2)
@@ -144,7 +135,6 @@ func (r *ChatroomRepository) CreateWithMember(ctx context.Context, chatroom *dom
 			return fmt.Errorf("failed to insert chatroom: %w", err)
 		}
 
-		// Add member (atomic with chatroom creation)
 		memberQuery := `
 			INSERT INTO chatroom_members (chatroom_id, user_id)
 			VALUES ($1, $2)
