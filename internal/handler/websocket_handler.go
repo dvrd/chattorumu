@@ -135,7 +135,7 @@ func (h *WebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	client := ws.NewClient(h.hub, conn, userID, user.Username, chatroomID, h.chatService, h.publisher)
+	client := ws.NewClient(r.Context(), h.hub, conn, userID, user.Username, chatroomID, h.chatService, h.publisher)
 
 	h.hub.Register(client)
 

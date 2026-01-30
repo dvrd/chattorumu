@@ -93,6 +93,45 @@ type StockResponse struct {
 	Timestamp        int64   `json:"timestamp"`
 }
 
+func NewRabbitMQWithRetry(ctx context.Context, url string) (*RabbitMQ, error) {
+	maxRetries := 5
+	baseDelay := time.Second
+
+	var lastErr error
+	for attempt := range maxRetries {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("connection cancelled: %w", ctx.Err())
+		default:
+		}
+
+		rmq, err := NewRabbitMQ(url)
+		if err == nil {
+			slog.Info("connected to rabbitmq",
+				slog.Int("attempt", attempt+1))
+			return rmq, nil
+		}
+
+		lastErr = err
+		if attempt < maxRetries-1 {
+			delay := baseDelay * time.Duration(1<<uint(attempt))
+			slog.Warn("rabbitmq connection failed, retrying",
+				slog.String("error", err.Error()),
+				slog.Int("attempt", attempt+1),
+				slog.Int("max_retries", maxRetries),
+				slog.Duration("retry_in", delay))
+
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return nil, fmt.Errorf("connection cancelled during retry: %w", ctx.Err())
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("failed to connect after %d attempts: %w", maxRetries, lastErr)
+}
+
 func NewRabbitMQ(url string) (*RabbitMQ, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
