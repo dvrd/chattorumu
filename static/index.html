@@ -6,26 +6,41 @@
     <title>Jobsity Chat</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --color-bg-primary: #0a0a0f;
-            --color-bg-secondary: #14141f;
-            --color-bg-glass: rgba(255, 255, 255, 0.03);
-            --color-border-glass: rgba(255, 255, 255, 0.08);
-            --color-aurora-1: #667eea;
-            --color-aurora-2: #764ba2;
-            --color-aurora-3: #f093fb;
-            --color-aurora-4: #4facfe;
-            --color-accent-primary: #6366f1;
-            --color-accent-success: #10b981;
-            --color-accent-danger: #ef4444;
-            --color-accent-bot: #06b6d4;
-            --color-text-primary: #ffffff;
-            --color-text-secondary: rgba(255, 255, 255, 0.7);
-            --color-text-tertiary: rgba(255, 255, 255, 0.4);
-            --font-base: 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            /* Vercel/shadcn UI design system - dark mode */
+            --background: 0 0% 3.9%;
+            --foreground: 0 0% 98%;
+            --card: 0 0% 7%;
+            --border: 0 0% 14.9%;
+            --muted: 0 0% 14.9%;
+            --muted-foreground: 0 0% 63.9%;
+            --accent: 0 0% 14.9%;
+            --primary: 0 0% 98%;
+            --primary-foreground: 0 0% 9%;
+
+            /* Legacy mappings for compatibility */
+            --color-bg-primary: hsl(var(--background));
+            --color-bg-secondary: hsl(var(--card));
+            --color-bg-glass: hsl(var(--card));
+            --color-border-glass: hsl(var(--border));
+            --color-accent-primary: hsl(var(--primary));
+            --color-accent-success: hsl(142 76% 36%);
+            --color-accent-danger: hsl(0 62.8% 30.6%);
+            --color-accent-bot: hsl(199 89% 48%);
+            --color-text-primary: hsl(var(--foreground));
+            --color-text-secondary: hsl(var(--muted-foreground));
+            --color-text-tertiary: hsl(var(--muted-foreground) / 0.6);
+            --font-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             --sidebar-width: 320px;
+            --radius: 0.5rem;
+
+            /* Remove aurora colors */
+            --color-aurora-1: hsl(var(--primary));
+            --color-aurora-2: hsl(var(--primary));
+            --color-aurora-3: hsl(var(--primary));
+            --color-aurora-4: hsl(var(--primary));
         }
 
         * {
@@ -41,31 +56,13 @@
             height: 100vh;
             overflow: hidden;
             position: relative;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Aurora Background */
+        /* Remove Aurora Background */
         .aurora-background {
-            position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            z-index: 0;
-            opacity: 0.4;
-            background:
-                radial-gradient(circle at 20% 50%, var(--color-aurora-1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, var(--color-aurora-2) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, var(--color-aurora-3) 0%, transparent 50%),
-                radial-gradient(circle at 60% 70%, var(--color-aurora-4) 0%, transparent 50%);
-            filter: blur(100px);
-            animation: aurora-shift 20s ease-in-out infinite;
-            pointer-events: none;
-        }
-
-        @keyframes aurora-shift {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            33% { transform: translate(-5%, -5%) rotate(10deg); }
-            66% { transform: translate(5%, 5%) rotate(-10deg); }
+            display: none;
         }
 
         /* Main Layout */
@@ -80,13 +77,11 @@
         /* Sidebar */
         .sidebar {
             width: var(--sidebar-width);
-            background: var(--color-bg-glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: var(--color-bg-secondary);
             border-right: 1px solid var(--color-border-glass);
             display: flex;
             flex-direction: column;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.2s ease;
         }
 
         .sidebar.mobile-hidden {
@@ -95,9 +90,8 @@
 
         /* Sidebar Header */
         .sidebar-header {
-            padding: 24px 20px;
+            padding: 1rem;
             border-bottom: 1px solid var(--color-border-glass);
-            background: rgba(255, 255, 255, 0.02);
         }
 
         .user-info {
@@ -108,17 +102,17 @@
         }
 
         .user-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, var(--color-aurora-1), var(--color-aurora-3));
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius);
+            background: var(--color-accent-primary);
+            color: var(--color-bg-primary);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: 700;
+            font-size: 0.875rem;
+            font-weight: 600;
             flex-shrink: 0;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
         .user-details {
@@ -151,6 +145,11 @@
             animation: pulse 2s ease-in-out infinite;
         }
 
+        .status-indicator.ready {
+            background: rgba(255, 255, 255, 0.9);
+            animation: pulse-ready 2s ease-in-out infinite;
+        }
+
         .status-indicator.disconnected {
             background: var(--color-accent-danger);
             animation: none;
@@ -163,6 +162,11 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
             50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+        }
+
+        @keyframes pulse-ready {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); }
+            50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0); }
         }
 
         .logout-btn {
@@ -359,6 +363,12 @@
             color: #6ee7b7;
         }
 
+        .connection-status.ready {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
         .connection-status.disconnected {
             background: rgba(239, 68, 68, 0.1);
             border-color: rgba(239, 68, 68, 0.2);
@@ -467,6 +477,7 @@
             font-size: 14px;
             font-weight: 700;
             flex-shrink: 0;
+            color: hsl(var(--primary-foreground));
             box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
 
@@ -829,8 +840,8 @@
                     <div class="user-details">
                         <div class="user-name" id="user-name">Loading...</div>
                         <div class="user-status">
-                            <span class="status-indicator" id="status-indicator"></span>
-                            <span id="status-text">Connecting...</span>
+                            <span class="status-indicator ready" id="status-indicator"></span>
+                            <span id="status-text"></span>
                         </div>
                     </div>
                 </div>
@@ -864,9 +875,9 @@
                         <h2 id="current-room-name">Select a chatroom</h2>
                         <div class="chat-room-members" id="current-room-members"></div>
                     </div>
-                    <div class="connection-status" id="connection-status">
+                    <div class="connection-status ready" id="connection-status">
                         <span class="connection-dot"></span>
-                        <span id="connection-text">Connecting</span>
+                        <span id="connection-text">Ready</span>
                     </div>
                 </div>
             </div>
@@ -1021,7 +1032,7 @@
                 <div class="chatroom-item ${currentRoom?.id === room.id ? 'active' : ''}" data-room-id="${room.id}" data-room-name="${escapeHtml(room.name)}">
                     <div class="chatroom-name">${escapeHtml(room.name)}</div>
                     <div class="chatroom-meta">
-                        <span class="chatroom-users">👥 ${room.user_count || 0} members</span>
+                        <span class="chatroom-users">👥 ${room.user_count || 0} ${(room.user_count || 0) === 1 ? 'user' : 'users'}</span>
                     </div>
                 </div>
             `).join('');
@@ -1038,6 +1049,12 @@
 
         // Join chatroom
         async function joinRoom(roomId, roomName) {
+            // Don't reconnect if already in this room and WebSocket is open
+            if (currentRoom && currentRoom.id === roomId && ws && ws.readyState === WebSocket.OPEN) {
+                console.log('Already connected to this room');
+                return;
+            }
+
             currentRoom = {
                 id: roomId,
                 name: roomName
@@ -1069,9 +1086,32 @@
                     method: 'POST',
                     credentials: 'include'
                 });
-                // Ignore errors - user might already be a member
             } catch (error) {
                 console.log('Join room request failed (might already be member):', error);
+            }
+
+            // Load previous messages before connecting WebSocket
+            try {
+                const response = await fetch(`/api/v1/chatrooms/${roomId}/messages?limit=50`, {
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.messages && data.messages.length > 0) {
+                        // Display messages in chronological order
+                        data.messages.forEach(msg => {
+                            displayMessage({
+                                username: msg.username,
+                                content: msg.content,
+                                timestamp: msg.created_at,
+                                is_bot: msg.is_bot
+                            });
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load message history:', error);
             }
 
             // Connect WebSocket
@@ -1087,9 +1127,16 @@
 
         // WebSocket connection
         function connectWebSocket(roomId) {
+            // Clear any pending reconnection attempts
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
+
             // Close existing connection
             if (ws) {
                 ws.close();
+                ws = null;
             }
 
             updateConnectionStatus('connecting');
@@ -1113,8 +1160,18 @@
             };
 
             ws.onmessage = (event) => {
-                const message = JSON.parse(event.data);
-                displayMessage(message);
+                try {
+                    const message = JSON.parse(event.data);
+
+                    // Handle different message types
+                    if (message.type === 'user_count_update') {
+                        updateUserCounts(message.user_counts);
+                    } else {
+                        displayMessage(message);
+                    }
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
+                }
             };
 
             ws.onerror = (error) => {
@@ -1123,16 +1180,20 @@
                 sendBtn.disabled = true; // Disable send button on error
             };
 
-            ws.onclose = () => {
-                console.log('WebSocket disconnected');
+            ws.onclose = (event) => {
+                console.log('WebSocket disconnected', event.code, event.reason);
                 updateConnectionStatus('disconnected');
                 sendBtn.disabled = true; // Disable send button when disconnected
 
-                // Attempt reconnection
-                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                // Only attempt reconnection if:
+                // 1. Still in the same room
+                // 2. Haven't exceeded max attempts
+                // 3. No pending reconnection timeout
+                if (currentRoom && currentRoom.id === roomId && reconnectAttempts < MAX_RECONNECT_ATTEMPTS && !reconnectTimeout) {
                     reconnectTimeout = setTimeout(() => {
                         reconnectAttempts++;
                         console.log(`Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+                        reconnectTimeout = null;
                         connectWebSocket(roomId);
                     }, RECONNECT_DELAY);
                 }
@@ -1145,6 +1206,12 @@
             connectionStatus.className = 'connection-status';
 
             switch (status) {
+                case 'ready':
+                    statusIndicator.classList.add('ready');
+                    statusText.textContent = '';
+                    connectionStatus.classList.add('ready');
+                    connectionText.textContent = 'Ready';
+                    break;
                 case 'connected':
                     // No additional class needed for connected state
                     statusText.textContent = 'Connected';
@@ -1167,8 +1234,20 @@
 
         // Display message in chat
         function displayMessage(message) {
-            const isBot = message.username === 'StockBot' || message.username === 'stock_bot';
-            const time = new Date(message.timestamp || message.created_at).toLocaleTimeString('en-US', {
+            // Skip system messages (user_joined, user_left) - they have no content
+            if (message.type === 'user_joined' || message.type === 'user_left') {
+                return;
+            }
+
+            // Skip messages with empty content
+            if (!message.content || message.content.trim() === '') {
+                return;
+            }
+
+            const isBot = message.username === 'StockBot' || message.username === 'stock_bot' || message.is_bot;
+
+            // Use user's locale for timestamp display
+            const time = new Date(message.timestamp || message.created_at).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit'
             });
@@ -1283,6 +1362,20 @@
             }
         }
 
+        // Update user counts in sidebar
+        function updateUserCounts(userCounts) {
+            document.querySelectorAll('.chatroom-item').forEach(item => {
+                const roomId = item.dataset.roomId;
+                const userCountElement = item.querySelector('.chatroom-users');
+
+                if (userCountElement) {
+                    // If room is not in the update, it means it has 0 users (empty chatrooms are removed from hub)
+                    const count = userCounts[roomId] !== undefined ? userCounts[roomId] : 0;
+                    userCountElement.textContent = `👥 ${count} ${count === 1 ? 'user' : 'users'}`;
+                }
+            });
+        }
+
         // Utility: Escape HTML
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -1290,61 +1383,64 @@
             return div.innerHTML;
         }
 
-        // Event Listeners
-        mobileMenuBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('mobile-hidden');
-        });
+        // Wait for DOM to be fully loaded before setting up event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Event Listeners
+            mobileMenuBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('mobile-hidden');
+            });
 
-        logoutBtn.addEventListener('click', logout);
+            logoutBtn.addEventListener('click', logout);
 
-        createRoomBtn.addEventListener('click', openCreateRoomModal);
+            createRoomBtn.addEventListener('click', openCreateRoomModal);
 
-        modalCancelBtn.addEventListener('click', closeCreateRoomModal);
+            modalCancelBtn.addEventListener('click', closeCreateRoomModal);
 
-        createRoomModal.addEventListener('click', (e) => {
-            if (e.target === createRoomModal) {
-                closeCreateRoomModal();
-            }
-        });
+            createRoomModal.addEventListener('click', (e) => {
+                if (e.target === createRoomModal) {
+                    closeCreateRoomModal();
+                }
+            });
 
-        createRoomForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const name = roomNameInput.value.trim();
-            if (name) {
-                createChatroom(name);
-            }
-        });
-
-        messageInput.addEventListener('input', () => {
-            // Auto-resize textarea
-            messageInput.style.height = 'auto';
-            messageInput.style.height = messageInput.scrollHeight + 'px';
-
-            // Check for stock command
-            checkStockCommand();
-        });
-
-        messageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            createRoomForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                sendMessage();
-            }
+                const name = roomNameInput.value.trim();
+                if (name) {
+                    createChatroom(name);
+                }
+            });
+
+            messageInput.addEventListener('input', () => {
+                // Auto-resize textarea
+                messageInput.style.height = 'auto';
+                messageInput.style.height = messageInput.scrollHeight + 'px';
+
+                // Check for stock command
+                checkStockCommand();
+            });
+
+            messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            sendBtn.addEventListener('click', sendMessage);
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', () => {
+                if (ws) {
+                    ws.close();
+                }
+                if (reconnectTimeout) {
+                    clearTimeout(reconnectTimeout);
+                }
+            });
+
+            // Initialize app
+            init();
         });
-
-        sendBtn.addEventListener('click', sendMessage);
-
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            if (ws) {
-                ws.close();
-            }
-            if (reconnectTimeout) {
-                clearTimeout(reconnectTimeout);
-            }
-        });
-
-        // Initialize app
-        init();
     </script>
 </body>
 </html>
