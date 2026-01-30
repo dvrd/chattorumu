@@ -10,7 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
+      - ../migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U jobsity"]
       interval: 10s
@@ -40,8 +40,8 @@ services:
 
   chat-server:
     build:
-      context: .
-      dockerfile: Dockerfile.chat-server
+      context: ..
+      dockerfile: containers/Dockerfile.chat-server
     container_name: jobsity-chat-server
     environment:
       PORT: 8080
@@ -71,8 +71,8 @@ services:
 
   stock-bot:
     build:
-      context: .
-      dockerfile: Dockerfile.stock-bot
+      context: ..
+      dockerfile: containers/Dockerfile.stock-bot
     container_name: jobsity-stock-bot
     environment:
       ENV: development

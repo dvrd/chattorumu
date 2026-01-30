@@ -49,24 +49,24 @@ fmt: ## Format code
 
 docker-build: ## Build Docker images
 	@echo "Building chat-server image..."
-	@docker build -t jobsity-chat:latest -f Dockerfile.chat-server .
+	@docker build -t jobsity-chat:latest -f containers/Dockerfile.chat-server .
 	@echo "Building stock-bot image..."
-	@docker build -t stock-bot:latest -f Dockerfile.stock-bot .
+	@docker build -t stock-bot:latest -f containers/Dockerfile.stock-bot .
 	@echo "Docker images built successfully!"
 
 docker-run: ## Run with Docker Compose
-	@docker-compose up -d
+	@docker-compose -f containers/docker-compose.yml up -d
 	@echo "Services started. Access chat at http://localhost:8080"
 	@echo "RabbitMQ Management UI: http://localhost:15672 (guest/guest)"
 
 docker-stop: ## Stop Docker Compose services
-	@docker-compose down
+	@docker-compose -f containers/docker-compose.yml down
 
 docker-logs: ## Show Docker Compose logs
-	@docker-compose logs -f
+	@docker-compose -f containers/docker-compose.yml logs -f
 
 docker-clean: ## Stop and remove Docker volumes
-	@docker-compose down -v
+	@docker-compose -f containers/docker-compose.yml down -v
 	@echo "Docker containers and volumes removed"
 
 migrate-up: ## Run database migrations up
@@ -134,7 +134,7 @@ clean: ## Clean build artifacts
 	@echo "Clean complete!"
 
 dev: ## Run development environment
-	@docker-compose up -d postgres rabbitmq
+	@docker-compose -f containers/docker-compose.yml up -d postgres rabbitmq
 	@echo "Waiting for services to be ready..."
 	@sleep 5
 	@make migrate-up

@@ -27,7 +27,7 @@ Real-time browser-based chat application with stock quote bot integration.
 
 ```bash
 # Start all services
-docker-compose up -d
+docker-compose -f containers/docker-compose.yml up -d
 
 # Run database migrations
 make migrate-up
@@ -113,9 +113,13 @@ make lint
 │   ├── websocket/      # WebSocket hub and client
 │   └── middleware/     # HTTP middleware
 ├── migrations/         # Database migrations
+├── static/             # Frontend assets
+├── containers/         # Docker configuration
+│   ├── docker-compose.yml
+│   ├── Dockerfile.chat-server
+│   └── Dockerfile.stock-bot
 ├── artifacts/          # API specs and schemas
-├── deployments/        # Kubernetes manifests
-└── docker-compose.yml  # Local development stack
+└── docs/               # Documentation
 ```
 
 ## Building
@@ -133,13 +137,7 @@ make docker-build
 ### Docker Compose (Development)
 
 ```bash
-docker-compose up -d
-```
-
-### Kubernetes (Production)
-
-```bash
-kubectl apply -f deployments/kubernetes/
+docker-compose -f containers/docker-compose.yml up -d
 ```
 
 ## License
