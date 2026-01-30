@@ -6,24 +6,32 @@
     <title>Register - Jobsity Chat</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --color-bg-primary: #0a0a0f;
-            --color-bg-secondary: #14141f;
-            --color-bg-glass: rgba(255, 255, 255, 0.03);
-            --color-border-glass: rgba(255, 255, 255, 0.08);
-            --color-aurora-1: #667eea;
-            --color-aurora-2: #764ba2;
-            --color-aurora-3: #f093fb;
-            --color-aurora-4: #4facfe;
-            --color-accent-primary: #6366f1;
-            --color-accent-success: #10b981;
-            --color-accent-danger: #ef4444;
-            --color-text-primary: #ffffff;
-            --color-text-secondary: rgba(255, 255, 255, 0.7);
-            --color-text-tertiary: rgba(255, 255, 255, 0.4);
-            --font-base: 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            /* Vercel/shadcn UI design system - dark mode */
+            --background: 0 0% 3.9%;
+            --foreground: 0 0% 98%;
+            --card: 0 0% 7%;
+            --card-foreground: 0 0% 98%;
+            --border: 0 0% 14.9%;
+            --input: 0 0% 14.9%;
+            --muted: 0 0% 14.9%;
+            --muted-foreground: 0 0% 63.9%;
+            --accent: 0 0% 14.9%;
+            --primary: 0 0% 98%;
+            --primary-foreground: 0 0% 9%;
+            --ring: 0 0% 83.1%;
+            --radius: 0.5rem;
+
+            --color-bg-primary: hsl(var(--background));
+            --color-bg-secondary: hsl(var(--card));
+            --color-border: hsl(var(--border));
+            --color-text-primary: hsl(var(--foreground));
+            --color-text-secondary: hsl(var(--muted-foreground));
+            --color-text-tertiary: hsl(var(--muted-foreground) / 0.6);
+            --color-accent-danger: hsl(0 62.8% 30.6%);
+            --font-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         * {
@@ -41,56 +49,21 @@
             align-items: center;
             justify-content: center;
             padding: 20px;
-            position: relative;
-            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Aurora Background */
-        .aurora-background {
-            position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            z-index: 0;
-            opacity: 0.6;
-            background:
-                radial-gradient(circle at 20% 50%, var(--color-aurora-1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, var(--color-aurora-2) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, var(--color-aurora-3) 0%, transparent 50%),
-                radial-gradient(circle at 60% 70%, var(--color-aurora-4) 0%, transparent 50%);
-            filter: blur(80px);
-            animation: aurora-shift 15s ease-in-out infinite;
-        }
-
-        @keyframes aurora-shift {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            33% { transform: translate(-5%, -5%) rotate(10deg); }
-            66% { transform: translate(5%, 5%) rotate(-10deg); }
-        }
-
-        /* Glass Container */
+        /* Container */
         .container {
-            position: relative;
-            z-index: 1;
-            max-width: 440px;
+            max-width: 400px;
             width: 100%;
-            background: var(--color-bg-glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--color-border-glass);
-            border-radius: 24px;
-            padding: 48px 40px;
-            box-shadow:
-                0 20px 40px rgba(0, 0, 0, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            animation: fade-in-up 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         @keyframes fade-in-up {
             from {
                 opacity: 0;
-                transform: translateY(30px);
+                transform: translateY(20px);
             }
             to {
                 opacity: 1;
@@ -98,87 +71,139 @@
             }
         }
 
+        /* Header */
         .header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 32px;
         }
 
         .logo {
-            width: 64px;
-            height: 64px;
-            margin: 0 auto 20px;
-            background: linear-gradient(135deg, var(--color-aurora-1), var(--color-aurora-3));
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             font-size: 32px;
-            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+            margin-bottom: 12px;
         }
 
-        .header h1 {
-            font-size: 28px;
-            font-weight: 700;
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
             margin-bottom: 8px;
-            letter-spacing: -0.02em;
+            color: var(--color-text-primary);
         }
 
-        .header p {
+        .subtitle {
+            font-size: 14px;
             color: var(--color-text-secondary);
-            font-size: 15px;
-            font-weight: 500;
         }
 
+        .subtitle a {
+            color: var(--color-text-primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .subtitle a:hover {
+            color: var(--color-text-secondary);
+        }
+
+        /* Card */
+        .card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: calc(var(--radius) + 4px);
+            padding: 32px;
+        }
+
+        /* Form */
         .form-group {
             margin-bottom: 24px;
         }
 
+        .form-group:last-of-type {
+            margin-bottom: 0;
+        }
+
         label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
             font-size: 14px;
-            color: var(--color-text-secondary);
-            letter-spacing: 0.01em;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--color-text-primary);
         }
 
         input {
             width: 100%;
-            padding: 14px 16px;
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border-glass);
-            border-radius: 12px;
-            font-size: 15px;
+            height: 40px;
+            padding: 0 12px;
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            font-size: 14px;
             font-family: var(--font-base);
             color: var(--color-text-primary);
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--color-text-primary);
+            background: var(--color-bg-primary);
         }
 
         input::placeholder {
             color: var(--color-text-tertiary);
         }
 
-        input:focus {
-            outline: none;
-            border-color: var(--color-accent-primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        input.error {
-            border-color: var(--color-accent-danger);
-        }
-
-        .field-error {
-            color: var(--color-accent-danger);
-            font-size: 13px;
+        /* Helper text */
+        .helper-text {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
             margin-top: 6px;
-            font-weight: 500;
-            display: none;
-            animation: shake 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97);
         }
 
-        .field-error.show {
+        /* Button */
+        button {
+            width: 100%;
+            height: 40px;
+            background: var(--color-text-primary);
+            color: var(--color-bg-primary);
+            border: none;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 500;
+            font-family: var(--font-base);
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 24px;
+        }
+
+        button:hover {
+            background: var(--color-text-secondary);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Error */
+        .error-message {
+            padding: 12px;
+            background: hsl(0 62.8% 30.6% / 0.1);
+            border: 1px solid hsl(0 62.8% 30.6% / 0.3);
+            border-radius: var(--radius);
+            font-size: 14px;
+            color: hsl(0 62.8% 60%);
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .error-message.show {
             display: block;
+            animation: shake 0.3s;
         }
 
         @keyframes shake {
@@ -187,282 +212,155 @@
             75% { transform: translateX(8px); }
         }
 
-        button {
-            width: 100%;
-            padding: 16px 24px;
-            background: linear-gradient(135deg, var(--color-accent-primary), var(--color-aurora-2));
-            color: var(--color-text-primary);
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            font-family: var(--font-base);
-            margin-top: 8px;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
-        }
-
-        button:hover:not(:disabled)::before {
-            left: 100%;
-        }
-
-        button:active:not(:disabled) {
-            transform: translateY(0);
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .error-alert, .success-alert {
-            border-radius: 12px;
-            padding: 12px 16px;
-            margin-bottom: 24px;
-            font-size: 14px;
-            font-weight: 500;
-            display: none;
-        }
-
-        .error-alert {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #fca5a5;
-        }
-
-        .success-alert {
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            color: #6ee7b7;
-        }
-
-        .error-alert.show, .success-alert.show {
-            display: block;
-        }
-
-        .login-link {
-            text-align: center;
-            margin-top: 32px;
-            font-size: 15px;
-            color: var(--color-text-secondary);
-        }
-
-        .login-link a {
-            color: var(--color-accent-primary);
-            text-decoration: none;
-            font-weight: 600;
-            transition: color 0.2s;
-        }
-
-        .login-link a:hover {
-            color: var(--color-aurora-3);
-        }
-
+        /* Responsive */
         @media (max-width: 480px) {
-            .container {
-                padding: 36px 24px;
+            .card {
+                padding: 24px;
             }
 
-            .header h1 {
-                font-size: 24px;
-            }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
+            h1 {
+                font-size: 20px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="aurora-background"></div>
-
     <div class="container">
         <div class="header">
             <div class="logo">💬</div>
-            <h1>Create account</h1>
-            <p>Join Jobsity Chat</p>
+            <h1>Create an account</h1>
+            <p class="subtitle">
+                Already have an account? <a href="/login">Sign in</a>
+            </p>
         </div>
 
-        <div id="general-error" class="error-alert"></div>
-        <div id="success-message" class="success-alert"></div>
+        <div class="card">
+            <form id="register-form">
+                <div class="error-message" id="error-message"></div>
 
-        <form id="register-form" novalidate>
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" placeholder="Choose a username" required>
-                <div id="username-error" class="field-error"></div>
-            </div>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Choose a username"
+                        required
+                        minlength="3"
+                        maxlength="50"
+                        pattern="[a-zA-Z0-9_]+"
+                        autocomplete="username"
+                    >
+                    <div class="helper-text">3-50 characters, letters, numbers, and underscores only</div>
+                </div>
 
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="Enter your email" required>
-                <div id="email-error" class="field-error"></div>
-            </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="Enter your email"
+                        required
+                        maxlength="255"
+                        autocomplete="email"
+                    >
+                </div>
 
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" placeholder="Create a password" required>
-                <div id="password-error" class="field-error"></div>
-            </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="Create a password"
+                        required
+                        minlength="8"
+                        maxlength="100"
+                        autocomplete="new-password"
+                    >
+                    <div class="helper-text">Minimum 8 characters</div>
+                </div>
 
-            <div class="form-group">
-                <label for="confirm-password">Confirm Password</label>
-                <input type="password" id="confirm-password" name="confirm-password" placeholder="Confirm password" required>
-                <div id="confirm-password-error" class="field-error"></div>
-            </div>
-
-            <button type="submit" id="register-btn">Create Account</button>
-        </form>
-
-        <div class="login-link">
-            Already have an account? <a href="/login">Sign in</a>
+                <button type="submit" id="submit-btn">Create account</button>
+            </form>
         </div>
     </div>
 
     <script>
-        function validateRequired(value, fieldName) {
-            return !value || value.trim() === '' ? `${fieldName} is required` : null;
-        }
+        const form = document.getElementById('register-form');
+        const errorMessage = document.getElementById('error-message');
+        const submitBtn = document.getElementById('submit-btn');
 
-        function validateMinLength(value, min, fieldName) {
-            return value.length < min ? `${fieldName} must be at least ${min} characters` : null;
-        }
-
-        function validateEmail(email) {
-            return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? 'Please enter a valid email' : null;
-        }
-
-        function validateUsername(username) {
-            return !/^[a-zA-Z0-9_]+$/.test(username) ? 'Only letters, numbers, and underscores allowed' : null;
-        }
-
-        function validatePasswordMatch(password, confirmPassword) {
-            return password !== confirmPassword ? 'Passwords do not match' : null;
-        }
-
-        function showFieldError(fieldId, message) {
-            const input = document.getElementById(fieldId);
-            const errorDiv = document.getElementById(`${fieldId}-error`);
-            input.classList.add('error');
-            errorDiv.textContent = message;
-            errorDiv.classList.add('show');
-        }
-
-        function clearFieldError(fieldId) {
-            const input = document.getElementById(fieldId);
-            const errorDiv = document.getElementById(`${fieldId}-error`);
-            input.classList.remove('error');
-            errorDiv.textContent = '';
-            errorDiv.classList.remove('show');
-        }
-
-        function clearAllErrors() {
-            ['username', 'email', 'password', 'confirm-password'].forEach(clearFieldError);
-            document.getElementById('general-error').classList.remove('show');
-        }
-
-        function showGeneralError(message) {
-            const errorDiv = document.getElementById('general-error');
-            errorDiv.textContent = message;
-            errorDiv.classList.add('show');
-        }
-
-        function showSuccess(message) {
-            const successDiv = document.getElementById('success-message');
-            successDiv.textContent = message;
-            successDiv.classList.add('show');
-        }
-
-        function validateForm() {
-            clearAllErrors();
-            let isValid = true;
-
-            const username = document.getElementById('username').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirm-password').value;
-
-            let error = validateRequired(username, 'Username');
-            if (!error) error = validateMinLength(username, 3, 'Username');
-            if (!error) error = validateUsername(username);
-            if (error) { showFieldError('username', error); isValid = false; }
-
-            error = validateRequired(email, 'Email');
-            if (!error) error = validateEmail(email);
-            if (error) { showFieldError('email', error); isValid = false; }
-
-            error = validateRequired(password, 'Password');
-            if (!error) error = validateMinLength(password, 6, 'Password');
-            if (error) { showFieldError('password', error); isValid = false; }
-
-            error = validateRequired(confirmPassword, 'Confirm Password');
-            if (!error) error = validatePasswordMatch(password, confirmPassword);
-            if (error) { showFieldError('confirm-password', error); isValid = false; }
-
-            return isValid;
-        }
-
-        document.getElementById('register-form').addEventListener('submit', async (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!validateForm()) return;
 
-            const username = document.getElementById('username').value;
-            const email = document.getElementById('email').value;
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
-            const submitBtn = document.getElementById('register-btn');
+
+            // Client-side validation
+            if (!username || !email || !password) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            if (username.length < 3 || username.length > 50) {
+                showError('Username must be 3-50 characters');
+                return;
+            }
+
+            if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                showError('Username can only contain letters, numbers, and underscores');
+                return;
+            }
+
+            if (password.length < 8) {
+                showError('Password must be at least 8 characters');
+                return;
+            }
 
             submitBtn.disabled = true;
             submitBtn.textContent = 'Creating account...';
+            errorMessage.classList.remove('show');
 
             try {
                 const response = await fetch('/api/v1/auth/register', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, password })
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, email, password }),
+                    credentials: 'include'
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    showSuccess('Account created! Redirecting...');
-                    setTimeout(() => window.location.href = '/login', 2000);
+                    // Registration successful - redirect to login
+                    window.location.href = '/login';
                 } else {
-                    showGeneralError(data.error || 'Registration failed');
+                    showError(data.error || 'Registration failed');
                     submitBtn.disabled = false;
-                    submitBtn.textContent = 'Create Account';
+                    submitBtn.textContent = 'Create account';
                 }
             } catch (error) {
-                showGeneralError('Connection error');
+                showError('Network error. Please try again.');
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Create Account';
+                submitBtn.textContent = 'Create account';
             }
         });
 
-        ['username', 'email', 'password', 'confirm-password'].forEach(fieldId => {
-            document.getElementById(fieldId).addEventListener('input', () => clearFieldError(fieldId));
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+        }
+
+        // Clear error on input
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => {
+                errorMessage.classList.remove('show');
+            });
         });
     </script>
 </body>
