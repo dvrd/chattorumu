@@ -1,0 +1,185 @@
+version: '3'
+
+vars:
+  DATABASE_URL:
+    sh: echo "${DATABASE_URL:-postgres://jobsity:jobsity123@localhost:5432/jobsity_chat?sslmode=disable}"
+  DOCKER_COMPOSE_FILE: containers/docker-compose.yml
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  build:
+    desc: Build the applications
+    cmds:
+      - echo "Building chat-server..."
+      - go build -o bin/chat-server ./cmd/chat-server
+      - echo "Building stock-bot..."
+      - go build -o bin/stock-bot ./cmd/stock-bot
+      - echo "Build complete!"
+
+  run-server:
+    desc: Run the chat server
+    cmds:
+      - go run ./cmd/chat-server
+
+  run-bot:
+    desc: Run the stock bot
+    cmds:
+      - go run ./cmd/stock-bot
+
+  test:
+    desc: Run tests with coverage
+    cmds:
+      - echo "Running tests..."
+      - go test -v -race -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Coverage report generated - coverage.html"
+
+  test-integration:
+    desc: Run integration tests
+    cmds:
+      - echo "Running integration tests..."
+      - go test -v -tags=integration ./test/...
+
+  test-short:
+    desc: Run short tests only
+    cmds:
+      - go test -short ./...
+
+  coverage:
+    desc: Generate coverage report
+    deps: [test]
+    cmds:
+      - go tool cover -func=coverage.out
+
+  lint:
+    desc: Run linters
+    cmds:
+      - echo "Running golangci-lint..."
+      - golangci-lint run
+      - echo "Running go vet..."
+      - go vet ./...
+      - echo "Running go fmt..."
+      - go fmt ./...
+
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+      - gofmt -s -w .
+
+  docker-build:
+    desc: Build Docker images
+    cmds:
+      - echo "Building chat-server image..."
+      - docker build -t jobsity-chat:latest -f containers/Dockerfile.chat-server .
+      - echo "Building stock-bot image..."
+      - docker build -t stock-bot:latest -f containers/Dockerfile.stock-bot .
+      - echo "Docker images built successfully!"
+
+  docker-run:
+    desc: Run with Docker Compose
+    cmds:
+      - docker-compose -f {{.DOCKER_COMPOSE_FILE}} up -d
+      - echo "Services started. Access chat at http://localhost:8080"
+      - echo "RabbitMQ Management UI - http://localhost:15672 (guest/guest)"
+
+  docker-stop:
+    desc: Stop Docker Compose services
+    cmds:
+      - docker-compose -f {{.DOCKER_COMPOSE_FILE}} down
+
+  docker-logs:
+    desc: Show Docker Compose logs
+    cmds:
+      - docker-compose -f {{.DOCKER_COMPOSE_FILE}} logs -f
+
+  docker-clean:
+    desc: Stop and remove Docker volumes
+    cmds:
+      - docker-compose -f {{.DOCKER_COMPOSE_FILE}} down -v
+      - echo "Docker containers and volumes removed"
+
+  migrate-up:
+    desc: Run database migrations up
+    cmds:
+      - echo "Running migrations..."
+      - docker run --rm -v {{.PWD}}/migrations:/migrations --network host migrate/migrate:v4.17.0 -path=/migrations -database "{{.DATABASE_URL}}" up
+      - echo "Migrations complete!"
+
+  migrate-down:
+    desc: Rollback last migration
+    cmds:
+      - echo "Rolling back migration..."
+      - docker run --rm -v {{.PWD}}/migrations:/migrations --network host migrate/migrate:v4.17.0 -path=/migrations -database "{{.DATABASE_URL}}" down 1
+      - echo "Rollback complete!"
+
+  migrate-create:
+    desc: Create new migration
+    summary: |
+      Create a new migration file
+      Usage: task migrate-create NAME=create_users_table
+    cmds:
+      - echo "Creating migration - {{.NAME}}"
+      - docker run --rm -v {{.PWD}}/migrations:/migrations migrate/migrate:v4.17.0 create -ext sql -dir /migrations -seq {{.NAME}}
+      - echo "Migration files created in migrations/"
+
+  migrate-force:
+    desc: Force migration version
+    summary: |
+      Force the database to a specific migration version
+      Usage: task migrate-force VERSION=1
+    cmds:
+      - echo "Forcing migration to version {{.VERSION}}..."
+      - docker run --rm -v {{.PWD}}/migrations:/migrations --network host migrate/migrate:v4.17.0 -path=/migrations -database "{{.DATABASE_URL}}" force {{.VERSION}}
+      - echo "Migration forced to version {{.VERSION}}!"
+
+  migrate-status:
+    desc: Check migration status
+    cmds:
+      - echo "Checking migration status..."
+      - docker run --rm -v {{.PWD}}/migrations:/migrations --network host migrate/migrate:v4.17.0 -path=/migrations -database "{{.DATABASE_URL}}" version
+
+  deps:
+    desc: Download dependencies
+    cmds:
+      - echo "Downloading dependencies..."
+      - go mod download
+      - go mod tidy
+      - echo "Dependencies updated!"
+
+  install-tools:
+    desc: Install development tools
+    cmds:
+      - echo "Installing tools..."
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+      - echo "Tools installed!"
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - echo "Cleaning..."
+      - rm -rf bin/
+      - rm -f coverage.out coverage.html
+      - echo "Clean complete!"
+
+  dev:
+    desc: Run development environment
+    cmds:
+      - docker-compose -f {{.DOCKER_COMPOSE_FILE}} up -d postgres rabbitmq
+      - echo "Waiting for services to be ready..."
+      - sleep 5
+      - task migrate-up
+      - echo "Starting chat server..."
+      - task run-server
+
+  init:
+    desc: Initialize project
+    summary: Install dependencies and development tools
+    deps: [deps, install-tools]
+    cmds:
+      - echo "Project initialized!"

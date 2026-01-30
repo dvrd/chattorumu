@@ -14,8 +14,8 @@ This directory contains all Docker-related configuration files for the Jobsity C
 # Start all services
 docker-compose -f containers/docker-compose.yml up -d
 
-# Or use the Makefile shortcut from project root
-make docker-run
+# Or use the Taskfile shortcut from project root
+task docker-run
 ```
 
 ## Services

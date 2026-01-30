@@ -22,6 +22,22 @@ Real-time browser-based chat application with stock quote bot integration.
 
 - Docker & Docker Compose
 - Go 1.21+ (for local development)
+- [Task](https://taskfile.dev) - Modern task runner (replaces Make)
+
+### Installing Task
+
+```bash
+# macOS
+brew install go-task/tap/go-task
+
+# Linux
+sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+# Windows (with Scoop)
+scoop install task
+
+# Or download binary from https://github.com/go-task/task/releases
+```
 
 ## Quick Start
 
@@ -30,7 +46,7 @@ Real-time browser-based chat application with stock quote bot integration.
 docker-compose -f containers/docker-compose.yml up -d
 
 # Run database migrations
-make migrate-up
+task migrate-up
 
 # Access the application
 # Chat: http://localhost:8080
@@ -41,19 +57,19 @@ make migrate-up
 
 ```bash
 # Install dependencies
-make deps
+task deps
 
 # Run chat server
-make run-server
+task run-server
 
 # Run stock bot (in another terminal)
-make run-bot
+task run-bot
 
 # Run tests
-make test
+task test
 
 # Run integration tests
-make test-integration
+task test-integration
 ```
 
 ## Environment Variables
@@ -85,16 +101,16 @@ Bot responds with: `AAPL.US quote is $93.42 per share`
 
 ```bash
 # Unit tests
-make test
+task test
 
 # Integration tests with test containers
-make test-integration
+task test-integration
 
 # Generate coverage report
-make coverage
+task coverage
 
 # Run linter
-make lint
+task lint
 ```
 
 ## Project Structure
@@ -126,10 +142,10 @@ make lint
 
 ```bash
 # Build both services
-make build
+task build
 
 # Build Docker images
-make docker-build
+task docker-build
 ```
 
 ## Deployment
