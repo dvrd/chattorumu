@@ -12,52 +12,44 @@ import (
 	"jobsity-chat/internal/service"
 )
 
-// AuthHandler handles authentication endpoints
 type AuthHandler struct {
-	authService *service.AuthService
+	authService  *service.AuthService
 	isProduction bool
 }
 
-// NewAuthHandler creates a new authentication handler
 func NewAuthHandler(authService *service.AuthService) *AuthHandler {
-	// Detect production environment
 	env := os.Getenv("ENVIRONMENT")
 	isProduction := env == "production" || env == "prod"
 
 	return &AuthHandler{
-		authService: authService,
+		authService:  authService,
 		isProduction: isProduction,
 	}
 }
 
-// RegisterRequest represents registration request
 type RegisterRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-// RegisterResponse represents registration response
 type RegisterResponse struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
 }
 
-// LoginRequest represents login request
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-// LoginResponse represents login response
 type LoginResponse struct {
 	Success      bool             `json:"success"`
 	User         RegisterResponse `json:"user"`
 	SessionToken string           `json:"session_token"` // Token for WebSocket authentication
 }
 
-// Register handles user registration
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -101,7 +93,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// Login handles user login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -127,15 +118,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set session cookie with environment-aware security settings
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
 		Value:    session.Token,
 		Path:     "/",
-		MaxAge:   86400, // 24 hours
+		MaxAge:   86400,
 		HttpOnly: true,
-		Secure:   h.isProduction, // Auto-enable Secure flag in production
-		SameSite: http.SameSiteLaxMode, // Lax allows WebSocket upgrades
+		Secure:   h.isProduction,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	resp := LoginResponse{
@@ -145,23 +135,20 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			Username: user.Username,
 			Email:    user.Email,
 		},
-		SessionToken: session.Token, // Include token for WebSocket connections
+		SessionToken: session.Token,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
 
-// Me returns current authenticated user info
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context (set by auth middleware)
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
 		return
 	}
 
-	// Get user from database
 	user, err := h.authService.GetUserByID(r.Context(), userID)
 	if err != nil {
 		http.Error(w, `{"error":"User not found"}`, http.StatusNotFound)
@@ -178,29 +165,25 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// Logout handles user logout
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	// Get session from context
 	session, ok := middleware.GetSession(r.Context())
 	if !ok {
 		http.Error(w, `{"error":"Session not found"}`, http.StatusUnauthorized)
 		return
 	}
 
-	// Delete session
 	if err := h.authService.Logout(r.Context(), session.Token); err != nil {
 		http.Error(w, `{"error":"Failed to logout"}`, http.StatusInternalServerError)
 		return
 	}
 
-	// Clear cookie with environment-aware security settings
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   h.isProduction, // Match security settings
+		Secure:   h.isProduction,
 		SameSite: http.SameSiteLaxMode,
 	})
 

@@ -10,7 +10,6 @@ import (
 	"jobsity-chat/internal/websocket"
 )
 
-// ResponseConsumer consumes stock responses and broadcasts them to WebSocket clients
 type ResponseConsumer struct {
 	rmq         *RabbitMQ
 	hub         *websocket.Hub
@@ -18,7 +17,6 @@ type ResponseConsumer struct {
 	botUserID   string
 }
 
-// NewResponseConsumer creates a new response consumer
 func NewResponseConsumer(rmq *RabbitMQ, hub *websocket.Hub, chatService *service.ChatService, botUserID string) *ResponseConsumer {
 	return &ResponseConsumer{
 		rmq:         rmq,
@@ -28,12 +26,7 @@ func NewResponseConsumer(rmq *RabbitMQ, hub *websocket.Hub, chatService *service
 	}
 }
 
-// Start starts consuming stock responses
 func (c *ResponseConsumer) Start(ctx context.Context) error {
-	// For simplicity, we'll consume from a general responses queue
-	// In production, you might want to consume per-chatroom or use a different approach
-
-	// Declare a queue for this consumer
 	queue, err := c.rmq.channel.QueueDeclare(
 		"",    // auto-generated name
 		false, // durable
@@ -46,7 +39,6 @@ func (c *ResponseConsumer) Start(ctx context.Context) error {
 		return err
 	}
 
-	// Bind to responses exchange
 	if err := c.rmq.channel.QueueBind(
 		queue.Name,       // queue name
 		"",               // routing key
@@ -74,7 +66,6 @@ func (c *ResponseConsumer) Start(ctx context.Context) error {
 		slog.String("queue", queue.Name),
 		slog.String("exchange", "chat.responses"))
 
-	// Process messages
 	go func() {
 		for {
 			select {
@@ -110,29 +101,27 @@ func (c *ResponseConsumer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *ResponseConsumer) processResponse(ctx context.Context, response *StockResponse) {
-	// Determine content based on error
+func (c *ResponseConsumer) processResponse(_ context.Context, response *StockResponse) {
 	content := response.FormattedMessage
 	if response.Error != "" {
 		content = response.Error
 	}
 
 	// Bot messages are NOT saved to database - only broadcast via WebSocket
-	// This keeps the chat history clean and reduces database load
 	slog.Info("processing bot message (not saving to database)",
 		slog.String("chatroom_id", response.ChatroomID),
 		slog.String("symbol", response.Symbol))
 
-	// Broadcast to WebSocket clients only
+	now := time.Now()
 	serverMsg := websocket.ServerMessage{
 		Type:      "chat_message",
-		ID:        "bot-" + response.ChatroomID + "-" + response.Symbol, // Temporary ID for frontend
+		ID:        "bot-" + response.ChatroomID + "-" + response.Symbol,
 		UserID:    c.botUserID,
 		Username:  "StockBot",
 		Content:   content,
 		IsBot:     true,
 		IsError:   response.Error != "",
-		CreatedAt: time.Now(),
+		CreatedAt: &now,
 	}
 
 	if data, err := json.Marshal(serverMsg); err == nil {

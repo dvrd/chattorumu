@@ -17,10 +17,8 @@ import (
 )
 
 func main() {
-	// Load configuration first
 	cfg := config.Load()
 
-	// Initialize structured logging
 	logLevel := os.Getenv("LOG_LEVEL")
 	if logLevel == "" {
 		logLevel = "info"
@@ -33,7 +31,6 @@ func main() {
 
 	slog.Info("starting stock bot")
 
-	// Connect to RabbitMQ
 	rmq, err := messaging.NewRabbitMQ(cfg.RabbitMQURL)
 	if err != nil {
 		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
@@ -43,10 +40,8 @@ func main() {
 
 	slog.Info("connected to rabbitmq")
 
-	// Initialize Stooq client
 	stooqClient := stock.NewStooqClient(cfg.StooqAPIURL)
 
-	// Start consuming messages
 	msgs, err := rmq.ConsumeStockCommands()
 	if err != nil {
 		slog.Error("failed to start consuming", slog.String("error", err.Error()))
@@ -55,14 +50,12 @@ func main() {
 
 	slog.Info("stock bot is ready to process commands")
 
-	// Setup graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	// Process messages
 	go func() {
 		for {
 			select {
@@ -74,7 +67,6 @@ func main() {
 					slog.Info("message channel closed")
 					return
 				}
-				// Use context with timeout for processing
 				msgCtx, msgCancel := context.WithTimeout(ctx, 30*time.Second)
 				if err := processCommand(msgCtx, msg.Body, stooqClient, rmq); err != nil {
 					slog.Error("error processing command", slog.String("error", err.Error()))
@@ -85,7 +77,6 @@ func main() {
 		}
 	}()
 
-	// Wait for shutdown signal
 	<-sigChan
 	slog.Info("shutting down stock bot")
 	cancel()
@@ -147,7 +138,6 @@ var zenPhrases = []string{
 }
 
 func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqClient, rmq *messaging.RabbitMQ) error {
-	// Try parsing as BotCommand first
 	var cmd messaging.BotCommand
 	if err := json.Unmarshal(body, &cmd); err != nil {
 		return fmt.Errorf("failed to unmarshal command: %w", err)
@@ -158,7 +148,6 @@ func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqCl
 		slog.String("chatroom_id", cmd.ChatroomID),
 		slog.String("requested_by", cmd.RequestedBy))
 
-	// Prepare response
 	response := &messaging.StockResponse{
 		ChatroomID: cmd.ChatroomID,
 		Timestamp:  time.Now().Unix(),
@@ -166,11 +155,9 @@ func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqCl
 
 	switch cmd.Type {
 	case "stock":
-		// Fetch quote from Stooq
 		quote, err := stooqClient.GetQuote(ctx, cmd.StockCode)
 
 		if err != nil {
-			// Handle error
 			slog.Error("error fetching quote",
 				slog.String("stock_code", cmd.StockCode),
 				slog.String("error", err.Error()))
@@ -180,7 +167,6 @@ func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqCl
 				response.Error = fmt.Sprintf("Stock %s not found", cmd.StockCode)
 			}
 		} else {
-			// Success
 			response.Symbol = quote.Symbol
 			response.Price = quote.Price
 			response.FormattedMessage = fmt.Sprintf("%s quote is $%.2f per share", quote.Symbol, quote.Price)
@@ -190,7 +176,6 @@ func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqCl
 		}
 
 	case "hello":
-		// Select random zen phrase
 		phrase := zenPhrases[time.Now().UnixNano()%int64(len(zenPhrases))]
 		response.FormattedMessage = phrase
 		response.Symbol = "zen"
@@ -202,7 +187,6 @@ func processCommand(ctx context.Context, body []byte, stooqClient *stock.StooqCl
 		slog.Warn("unknown command type", slog.String("type", cmd.Type))
 	}
 
-	// Publish response
 	if err := rmq.PublishStockResponse(ctx, response); err != nil {
 		return fmt.Errorf("failed to publish response: %w", err)
 	}

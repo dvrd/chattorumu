@@ -6,19 +6,14 @@ import (
 	"fmt"
 )
 
-// TxManager manages database transactions
 type TxManager struct {
 	db *sql.DB
 }
 
-// NewTxManager creates a new transaction manager
 func NewTxManager(db *sql.DB) *TxManager {
 	return &TxManager{db: db}
 }
 
-// WithTx executes a function within a database transaction
-// If the function returns an error, the transaction is rolled back
-// Otherwise, the transaction is committed
 func (tm *TxManager) WithTx(ctx context.Context, fn func(*sql.Tx) error) error {
 	tx, err := tm.db.BeginTx(ctx, nil)
 	if err != nil {

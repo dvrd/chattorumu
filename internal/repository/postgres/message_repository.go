@@ -8,17 +8,14 @@ import (
 	"jobsity-chat/internal/domain"
 )
 
-// MessageRepository implements domain.MessageRepository for PostgreSQL
 type MessageRepository struct {
 	db *sql.DB
 }
 
-// NewMessageRepository creates a new PostgreSQL message repository
 func NewMessageRepository(db *sql.DB) *MessageRepository {
 	return &MessageRepository{db: db}
 }
 
-// Create inserts a new message into the database
 func (r *MessageRepository) Create(ctx context.Context, message *domain.Message) error {
 	query := `
 		INSERT INTO messages (chatroom_id, user_id, content, is_bot)
@@ -38,9 +35,7 @@ func (r *MessageRepository) Create(ctx context.Context, message *domain.Message)
 	return nil
 }
 
-// GetByChatroom retrieves messages for a chatroom, ordered by timestamp (oldest first)
 func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string, limit int) ([]*domain.Message, error) {
-	// Use subquery to get the last N messages DESC, then order them ASC (oldest first)
 	query := `
 		SELECT id, chatroom_id, user_id, username, content, is_bot, created_at
 		FROM (
@@ -85,9 +80,7 @@ func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string
 	return messages, nil
 }
 
-// GetByCharoomBefore retrieves messages before a specific timestamp
 func (r *MessageRepository) GetByChatroomBefore(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error) {
-	// Get messages before the specified timestamp, ordered oldest first
 	query := `
 		SELECT id, chatroom_id, user_id, username, content, is_bot, created_at
 		FROM (

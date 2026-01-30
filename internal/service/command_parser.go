@@ -8,18 +8,15 @@ import (
 var stockCommandRegex = regexp.MustCompile(`^/stock=([a-zA-Z0-9.]{1,20})$`)
 var helloCommandRegex = regexp.MustCompile(`^/hello$`)
 
-// Command represents a parsed command
 type Command struct {
 	Type      string
 	StockCode string
 }
 
-// ParseCommand attempts to parse a message as a command
-// Returns the command and true if it's a command, nil and false otherwise
+// ParseCommand parses a message as a command, returning the command and true if valid
 func ParseCommand(content string) (*Command, bool) {
 	content = strings.TrimSpace(content)
 
-	// Check for stock command
 	if matches := stockCommandRegex.FindStringSubmatch(content); matches != nil {
 		return &Command{
 			Type:      "stock",
@@ -27,7 +24,6 @@ func ParseCommand(content string) (*Command, bool) {
 		}, true
 	}
 
-	// Check for hello command
 	if helloCommandRegex.MatchString(content) {
 		return &Command{
 			Type: "hello",

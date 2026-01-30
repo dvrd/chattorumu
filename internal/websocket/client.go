@@ -15,20 +15,12 @@ import (
 )
 
 const (
-	// Time allowed to write a message to the peer
-	writeWait = 10 * time.Second
-
-	// Time allowed to read the next pong message from the peer
-	pongWait = 60 * time.Second
-
-	// Send pings to peer with this period (must be less than pongWait)
-	pingPeriod = 54 * time.Second
-
-	// Maximum message size allowed from peer
+	writeWait      = 10 * time.Second
+	pongWait       = 60 * time.Second
+	pingPeriod     = 54 * time.Second // Must be less than pongWait
 	maxMessageSize = 1024
 )
 
-// Client represents a WebSocket client
 type Client struct {
 	hub         *Hub
 	conn        *websocket.Conn
@@ -38,38 +30,34 @@ type Client struct {
 	chatroomID  string
 	chatService *service.ChatService
 	publisher   MessagePublisher
-	writeMu     sync.Mutex         // Protects writes to conn
-	closed      atomic.Bool        // Tracks connection state
-	ctx         context.Context    // Client context for operations
-	ctxCancel   context.CancelFunc // Cancel function for cleanup
+	writeMu     sync.Mutex
+	closed      atomic.Bool
+	ctx         context.Context
+	ctxCancel   context.CancelFunc
 }
 
-// MessagePublisher defines the interface for publishing messages to RabbitMQ
 type MessagePublisher interface {
 	PublishStockCommand(ctx context.Context, chatroomID, stockCode, requestedBy string) error
 	PublishHelloCommand(ctx context.Context, chatroomID, requestedBy string) error
 }
 
-// ClientMessage represents a message from the client
 type ClientMessage struct {
 	Type    string `json:"type"`
 	Content string `json:"content"`
 }
 
-// ServerMessage represents a message to the client
 type ServerMessage struct {
-	Type      string    `json:"type"`
-	ID        string    `json:"id,omitempty"`
-	UserID    string    `json:"user_id,omitempty"`
-	Username  string    `json:"username,omitempty"`
-	Content   string    `json:"content,omitempty"`
-	IsBot     bool      `json:"is_bot,omitempty"`
-	IsError   bool      `json:"is_error,omitempty"`
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	Message   string    `json:"message,omitempty"`
+	Type      string     `json:"type"`
+	ID        string     `json:"id,omitempty"`
+	UserID    string     `json:"user_id,omitempty"`
+	Username  string     `json:"username,omitempty"`
+	Content   string     `json:"content,omitempty"`
+	IsBot     bool       `json:"is_bot,omitempty"`
+	IsError   bool       `json:"is_error,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+	Message   string     `json:"message,omitempty"`
 }
 
-// NewClient creates a new WebSocket client
 func NewClient(hub *Hub, conn *websocket.Conn, userID, username, chatroomID string,
 	chatService *service.ChatService, publisher MessagePublisher) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -88,14 +76,12 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, username, chatroomID stri
 	}
 }
 
-// ReadPump pumps messages from the WebSocket connection to the hub
 func (c *Client) ReadPump() {
 	defer func() {
-		c.ctxCancel() // Cancel all ongoing operations
+		c.ctxCancel()
 		c.hub.Unregister(c)
 		c.closeConnection()
 
-		// Broadcast user left message
 		leftMsg := ServerMessage{
 			Type:     "user_left",
 			Username: c.username,
@@ -129,7 +115,6 @@ func (c *Client) ReadPump() {
 		return nil
 	})
 
-	// Send user joined message
 	joinedMsg := ServerMessage{
 		Type:     "user_joined",
 		Username: c.username,
@@ -154,7 +139,6 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		// Parse message
 		var clientMsg ClientMessage
 		if err := json.Unmarshal(message, &clientMsg); err != nil {
 			slog.Warn("invalid message format",
@@ -163,9 +147,7 @@ func (c *Client) ReadPump() {
 			continue
 		}
 
-		// Check if command
 		if cmd, isCommand := service.ParseCommand(clientMsg.Content); isCommand {
-			// Publish command to RabbitMQ (don't save to database)
 			func() {
 				ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
 				defer cancel()
@@ -234,7 +216,7 @@ func (c *Client) ReadPump() {
 			Username:  msg.Username,
 			Content:   msg.Content,
 			IsBot:     msg.IsBot,
-			CreatedAt: msg.CreatedAt,
+			CreatedAt: &msg.CreatedAt,
 		}
 
 		data, err := json.Marshal(serverMsg)

@@ -8,17 +8,14 @@ import (
 	"jobsity-chat/internal/domain"
 )
 
-// UserRepository implements domain.UserRepository for PostgreSQL
 type UserRepository struct {
 	db *sql.DB
 }
 
-// NewUserRepository creates a new PostgreSQL user repository
 func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-// Create inserts a new user into the database
 func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	query := `
 		INSERT INTO users (username, email, password_hash)
@@ -32,7 +29,6 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	).Scan(&user.ID, &user.CreatedAt)
 
 	if err != nil {
-		// Check for unique constraint violations using typed errors
 		if IsUniqueViolation(err, "users_username_key") {
 			return domain.ErrUsernameExists
 		}
@@ -45,7 +41,6 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
-// GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	query := `
 		SELECT id, username, email, password_hash, created_at
@@ -69,7 +64,6 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 	return user, nil
 }
 
-// GetByUsername retrieves a user by username
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
 	query := `
 		SELECT id, username, email, password_hash, created_at
@@ -93,7 +87,6 @@ func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*d
 	return user, nil
 }
 
-// GetByEmail retrieves a user by email
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := `
 		SELECT id, username, email, password_hash, created_at

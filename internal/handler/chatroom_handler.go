@@ -12,13 +12,11 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// HubInterface defines the interface for getting connected user counts
 type HubInterface interface {
 	GetConnectedUserCount(chatroomID string) int
 	GetAllConnectedCounts() map[string]int
 }
 
-// ChatServiceInterface defines the interface for chat operations
 type ChatServiceInterface interface {
 	CreateChatroom(ctx context.Context, name, createdBy string) (*domain.Chatroom, error)
 	ListChatrooms(ctx context.Context) ([]*domain.Chatroom, error)
@@ -29,13 +27,11 @@ type ChatServiceInterface interface {
 	SendMessage(ctx context.Context, message *domain.Message) error
 }
 
-// ChatroomHandler handles chatroom endpoints
 type ChatroomHandler struct {
 	chatService ChatServiceInterface
 	hub         HubInterface
 }
 
-// NewChatroomHandler creates a new chatroom handler
 func NewChatroomHandler(chatService ChatServiceInterface, hub HubInterface) *ChatroomHandler {
 	return &ChatroomHandler{
 		chatService: chatService,
@@ -43,12 +39,10 @@ func NewChatroomHandler(chatService ChatServiceInterface, hub HubInterface) *Cha
 	}
 }
 
-// CreateChatroomRequest represents chatroom creation request
 type CreateChatroomRequest struct {
 	Name string `json:"name"`
 }
 
-// ChatroomResponse extends domain.Chatroom with connected user count
 type ChatroomResponse struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -57,7 +51,6 @@ type ChatroomResponse struct {
 	UserCount int    `json:"user_count"`
 }
 
-// List retrieves all chatrooms with connected user counts
 func (h *ChatroomHandler) List(w http.ResponseWriter, r *http.Request) {
 	chatrooms, err := h.chatService.ListChatrooms(r.Context())
 	if err != nil {
@@ -65,10 +58,8 @@ func (h *ChatroomHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get connected user counts from hub
 	connectedCounts := h.hub.GetAllConnectedCounts()
 
-	// Build response with user counts
 	response := make([]ChatroomResponse, len(chatrooms))
 	for i, room := range chatrooms {
 		response[i] = ChatroomResponse{
@@ -81,12 +72,11 @@ func (h *ChatroomHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"chatrooms": response,
 	})
 }
 
-// Create creates a new chatroom
 func (h *ChatroomHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -111,7 +101,6 @@ func (h *ChatroomHandler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(chatroom)
 }
 
-// GetMessages retrieves messages for a chatroom
 func (h *ChatroomHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -125,14 +114,12 @@ func (h *ChatroomHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check membership
 	isMember, err := h.chatService.IsMember(r.Context(), chatroomID, userID)
 	if err != nil || !isMember {
 		http.Error(w, `{"error":"Not a member of this chatroom"}`, http.StatusForbidden)
 		return
 	}
 
-	// Get limit from query parameter with bounds checking
 	const (
 		minLimit     = 1
 		maxLimit     = 100
@@ -152,7 +139,6 @@ func (h *ChatroomHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get messages - if 'before' timestamp is provided, load messages before that timestamp
 	var messages []*domain.Message
 	before := r.URL.Query().Get("before")
 	if before != "" {
@@ -167,12 +153,11 @@ func (h *ChatroomHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"messages": messages,
 	})
 }
 
-// Join adds a user to a chatroom
 func (h *ChatroomHandler) Join(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
