@@ -251,10 +251,12 @@ func startSessionCleanup(ctx context.Context, repo domain.SessionRepository) {
 			return
 		case <-ticker.C:
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			if err := repo.DeleteExpired(cleanupCtx); err != nil {
+			count, err := repo.DeleteExpired(cleanupCtx)
+			if err != nil {
 				slog.Error("session cleanup failed", slog.String("error", err.Error()))
 			} else {
-				slog.Info("session cleanup completed")
+				slog.Info("session cleanup completed",
+					slog.Int64("sessions_deleted", count))
 			}
 			cancel()
 		}

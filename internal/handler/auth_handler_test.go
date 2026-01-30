@@ -59,7 +59,7 @@ type mockSessionRepository struct {
 	createFunc        func(ctx context.Context, session *domain.Session) error
 	getByTokenFunc    func(ctx context.Context, token string) (*domain.Session, error)
 	deleteFunc        func(ctx context.Context, token string) error
-	deleteExpiredFunc func(ctx context.Context) error
+	deleteExpiredFunc func(ctx context.Context) (int64, error)
 }
 
 func (m *mockSessionRepository) Create(ctx context.Context, session *domain.Session) error {
@@ -83,11 +83,11 @@ func (m *mockSessionRepository) Delete(ctx context.Context, token string) error 
 	return errors.New("not implemented")
 }
 
-func (m *mockSessionRepository) DeleteExpired(ctx context.Context) error {
+func (m *mockSessionRepository) DeleteExpired(ctx context.Context) (int64, error) {
 	if m.deleteExpiredFunc != nil {
 		return m.deleteExpiredFunc(ctx)
 	}
-	return nil
+	return 0, nil
 }
 
 func TestAuthHandler_Register_Success(t *testing.T) {
@@ -195,7 +195,7 @@ func TestAuthHandler_Register_ValidationErrors(t *testing.T) {
 				}
 			},
 			expectedStatus: http.StatusConflict,
-			expectedMsg:    "Username already exists",
+			expectedMsg:    "User already exists",
 		},
 		{
 			name:        "email exists",
@@ -208,7 +208,7 @@ func TestAuthHandler_Register_ValidationErrors(t *testing.T) {
 				}
 			},
 			expectedStatus: http.StatusConflict,
-			expectedMsg:    "Email already exists",
+			expectedMsg:    "User already exists",
 		},
 		{
 			name:        "internal error",

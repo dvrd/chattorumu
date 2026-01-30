@@ -111,8 +111,8 @@ func (m *mockSessionRepository) DeleteByUserID(ctx context.Context, userID strin
 	return nil
 }
 
-func (m *mockSessionRepository) DeleteExpired(ctx context.Context) error {
-	return nil
+func (m *mockSessionRepository) DeleteExpired(ctx context.Context) (int64, error) {
+	return 0, nil
 }
 
 func TestAuthService_Register_Success(t *testing.T) {

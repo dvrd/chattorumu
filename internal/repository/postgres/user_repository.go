@@ -9,20 +9,48 @@ import (
 )
 
 type UserRepository struct {
-	db *sql.DB
+	db                *sql.DB
+	createStmt        *sql.Stmt
+	getByIDStmt       *sql.Stmt
+	getByUsernameStmt *sql.Stmt
 }
 
 func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{db: db}
-}
+	repo := &UserRepository{db: db}
 
-func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
-	query := `
+	var err error
+	repo.createStmt, err = db.Prepare(`
 		INSERT INTO users (username, email, password_hash)
 		VALUES ($1, $2, $3)
 		RETURNING id, created_at
-	`
-	err := r.db.QueryRowContext(ctx, query,
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare create statement: %v", err))
+	}
+
+	repo.getByIDStmt, err = db.Prepare(`
+		SELECT id, username, email, password_hash, created_at
+		FROM users
+		WHERE id = $1
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare getByID statement: %v", err))
+	}
+
+	repo.getByUsernameStmt, err = db.Prepare(`
+		SELECT id, username, email, password_hash, created_at
+		FROM users
+		WHERE username = $1
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare getByUsername statement: %v", err))
+	}
+
+	return repo
+}
+
+func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
+	err := r.createStmt.QueryRowContext(ctx,
 		user.Username,
 		user.Email,
 		user.PasswordHash,
@@ -42,13 +70,8 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
-	query := `
-		SELECT id, username, email, password_hash, created_at
-		FROM users
-		WHERE id = $1
-	`
 	user := &domain.User{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.getByIDStmt.QueryRowContext(ctx, id).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
@@ -65,13 +88,8 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 }
 
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
-	query := `
-		SELECT id, username, email, password_hash, created_at
-		FROM users
-		WHERE username = $1
-	`
 	user := &domain.User{}
-	err := r.db.QueryRowContext(ctx, query, username).Scan(
+	err := r.getByUsernameStmt.QueryRowContext(ctx, username).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,

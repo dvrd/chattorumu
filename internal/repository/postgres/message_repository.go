@@ -9,20 +9,62 @@ import (
 )
 
 type MessageRepository struct {
-	db *sql.DB
+	db                       *sql.DB
+	createStmt               *sql.Stmt
+	getByChatroomStmt        *sql.Stmt
+	getByChatroomBeforeStmt  *sql.Stmt
 }
 
 func NewMessageRepository(db *sql.DB) *MessageRepository {
-	return &MessageRepository{db: db}
-}
+	repo := &MessageRepository{db: db}
 
-func (r *MessageRepository) Create(ctx context.Context, message *domain.Message) error {
-	query := `
+	var err error
+	repo.createStmt, err = db.Prepare(`
 		INSERT INTO messages (chatroom_id, user_id, content, is_bot)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, created_at
-	`
-	err := r.db.QueryRowContext(ctx, query,
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare create statement: %v", err))
+	}
+
+	repo.getByChatroomStmt, err = db.Prepare(`
+		SELECT id, chatroom_id, user_id, username, content, is_bot, created_at
+		FROM (
+			SELECT m.id, m.chatroom_id, m.user_id, u.username, m.content, m.is_bot, m.created_at
+			FROM messages m
+			JOIN users u ON m.user_id = u.id
+			WHERE m.chatroom_id = $1
+			ORDER BY m.created_at DESC
+			LIMIT $2
+		) AS recent_messages
+		ORDER BY created_at ASC
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare getByChatroom statement: %v", err))
+	}
+
+	repo.getByChatroomBeforeStmt, err = db.Prepare(`
+		SELECT id, chatroom_id, user_id, username, content, is_bot, created_at
+		FROM (
+			SELECT m.id, m.chatroom_id, m.user_id, u.username, m.content, m.is_bot, m.created_at
+			FROM messages m
+			JOIN users u ON m.user_id = u.id
+			WHERE m.chatroom_id = $1 AND m.id < $2
+			ORDER BY m.created_at DESC
+			LIMIT $3
+		) AS earlier_messages
+		ORDER BY created_at ASC
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare getByChatroomBefore statement: %v", err))
+	}
+
+	return repo
+}
+
+func (r *MessageRepository) Create(ctx context.Context, message *domain.Message) error {
+	err := r.createStmt.QueryRowContext(ctx,
 		message.ChatroomID,
 		message.UserID,
 		message.Content,
@@ -36,20 +78,7 @@ func (r *MessageRepository) Create(ctx context.Context, message *domain.Message)
 }
 
 func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string, limit int) ([]*domain.Message, error) {
-	query := `
-		SELECT id, chatroom_id, user_id, username, content, is_bot, created_at
-		FROM (
-			SELECT m.id, m.chatroom_id, m.user_id, u.username, m.content, m.is_bot, m.created_at
-			FROM messages m
-			JOIN users u ON m.user_id = u.id
-			WHERE m.chatroom_id = $1
-			ORDER BY m.created_at DESC
-			LIMIT $2
-		) AS recent_messages
-		ORDER BY created_at ASC
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, chatroomID, limit)
+	rows, err := r.getByChatroomStmt.QueryContext(ctx, chatroomID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query messages: %w", err)
 	}
@@ -81,20 +110,7 @@ func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string
 }
 
 func (r *MessageRepository) GetByChatroomBefore(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error) {
-	query := `
-		SELECT id, chatroom_id, user_id, username, content, is_bot, created_at
-		FROM (
-			SELECT m.id, m.chatroom_id, m.user_id, u.username, m.content, m.is_bot, m.created_at
-			FROM messages m
-			JOIN users u ON m.user_id = u.id
-			WHERE m.chatroom_id = $1 AND m.created_at < $2
-			ORDER BY m.created_at DESC
-			LIMIT $3
-		) AS recent_messages
-		ORDER BY created_at ASC
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, chatroomID, before, limit)
+	rows, err := r.getByChatroomBeforeStmt.QueryContext(ctx, chatroomID, before, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query messages before timestamp: %w", err)
 	}

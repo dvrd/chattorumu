@@ -9,24 +9,63 @@ import (
 )
 
 type ChatroomRepository struct {
-	db *sql.DB
-	tm *TxManager
+	db            *sql.DB
+	tm            *TxManager
+	createStmt    *sql.Stmt
+	getByIDStmt   *sql.Stmt
+	addMemberStmt *sql.Stmt
+	isMemberStmt  *sql.Stmt
 }
 
 func NewChatroomRepository(db *sql.DB) *ChatroomRepository {
-	return &ChatroomRepository{
+	repo := &ChatroomRepository{
 		db: db,
 		tm: NewTxManager(db),
 	}
-}
 
-func (r *ChatroomRepository) Create(ctx context.Context, chatroom *domain.Chatroom) error {
-	query := `
+	var err error
+	repo.createStmt, err = db.Prepare(`
 		INSERT INTO chatrooms (name, created_by)
 		VALUES ($1, $2)
 		RETURNING id, created_at
-	`
-	err := r.db.QueryRowContext(ctx, query,
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare create statement: %v", err))
+	}
+
+	repo.getByIDStmt, err = db.Prepare(`
+		SELECT id, name, created_at, created_by
+		FROM chatrooms
+		WHERE id = $1
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare getByID statement: %v", err))
+	}
+
+	repo.addMemberStmt, err = db.Prepare(`
+		INSERT INTO chatroom_members (chatroom_id, user_id)
+		VALUES ($1, $2)
+		ON CONFLICT (chatroom_id, user_id) DO NOTHING
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare addMember statement: %v", err))
+	}
+
+	repo.isMemberStmt, err = db.Prepare(`
+		SELECT EXISTS(
+			SELECT 1 FROM chatroom_members
+			WHERE chatroom_id = $1 AND user_id = $2
+		)
+	`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to prepare isMember statement: %v", err))
+	}
+
+	return repo
+}
+
+func (r *ChatroomRepository) Create(ctx context.Context, chatroom *domain.Chatroom) error {
+	err := r.createStmt.QueryRowContext(ctx,
 		chatroom.Name,
 		chatroom.CreatedBy,
 	).Scan(&chatroom.ID, &chatroom.CreatedAt)
@@ -38,13 +77,8 @@ func (r *ChatroomRepository) Create(ctx context.Context, chatroom *domain.Chatro
 }
 
 func (r *ChatroomRepository) GetByID(ctx context.Context, id string) (*domain.Chatroom, error) {
-	query := `
-		SELECT id, name, created_at, created_by
-		FROM chatrooms
-		WHERE id = $1
-	`
 	chatroom := &domain.Chatroom{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.getByIDStmt.QueryRowContext(ctx, id).Scan(
 		&chatroom.ID,
 		&chatroom.Name,
 		&chatroom.CreatedAt,
@@ -157,12 +191,7 @@ func (r *ChatroomRepository) ListPaginated(ctx context.Context, limit int, curso
 }
 
 func (r *ChatroomRepository) AddMember(ctx context.Context, chatroomID, userID string) error {
-	query := `
-		INSERT INTO chatroom_members (chatroom_id, user_id)
-		VALUES ($1, $2)
-		ON CONFLICT (chatroom_id, user_id) DO NOTHING
-	`
-	_, err := r.db.ExecContext(ctx, query, chatroomID, userID)
+	_, err := r.addMemberStmt.ExecContext(ctx, chatroomID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to add member to chatroom: %w", err)
 	}
@@ -170,14 +199,8 @@ func (r *ChatroomRepository) AddMember(ctx context.Context, chatroomID, userID s
 }
 
 func (r *ChatroomRepository) IsMember(ctx context.Context, chatroomID, userID string) (bool, error) {
-	query := `
-		SELECT EXISTS(
-			SELECT 1 FROM chatroom_members
-			WHERE chatroom_id = $1 AND user_id = $2
-		)
-	`
 	var exists bool
-	err := r.db.QueryRowContext(ctx, query, chatroomID, userID).Scan(&exists)
+	err := r.isMemberStmt.QueryRowContext(ctx, chatroomID, userID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check chatroom membership: %w", err)
 	}
