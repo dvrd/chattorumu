@@ -63,6 +63,7 @@ type ServerMessage struct {
 	Username  string    `json:"username,omitempty"`
 	Content   string    `json:"content,omitempty"`
 	IsBot     bool      `json:"is_bot,omitempty"`
+	IsError   bool      `json:"is_error,omitempty"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	Message   string    `json:"message,omitempty"`
 }
