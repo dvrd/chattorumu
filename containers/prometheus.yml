@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'jobsity-chat-monitor'
+
+scrape_configs:
+  # Jobsity Chat Server
+  - job_name: 'jobsity-chat-server'
+    static_configs:
+      - targets: ['chat-server:8080']
+        labels:
+          service: 'chat-server'
+          environment: 'development'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
