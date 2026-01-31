@@ -38,7 +38,7 @@ tasks:
     desc: Run unit tests with coverage
     cmds:
       - echo "🧪 Running unit tests..."
-      - go test -v -race -short -coverprofile=coverage.out ./...
+      - go test -v -race -short -coverprofile=coverage.out ./tests/unit/...
       - go tool cover -html=coverage.out -o coverage.html
       - echo "✅ Unit tests complete - coverage.html generated"
 
@@ -49,9 +49,9 @@ tasks:
       - echo "⚠️  Ensure Docker daemon is running (docker info)"
       - echo "📦 First run will download PostgreSQL (~100MB) and RabbitMQ (~50MB)"
       - echo ""
-      - go test -v -tags=e2e -timeout 10m ./tests/...
-      - echo ""
-      - echo "✅ All E2E tests complete"
+      - go test -v -tags=e2e -coverprofile=coverage.out -timeout 10m ./tests/e2e/...
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "✅ E2E tests complete - coverage.html generated"
 
   coverage:
     desc: Show coverage report in terminal

@@ -94,7 +94,7 @@ export function setup() {
   }
 
   // Create admin and chatrooms
-  const adminToken = registerAndLogin('soak_test_admin');
+  const adminToken = registerAndLogin(`soak_test_admin_${Date.now()}`);
   if (!adminToken) {
     throw new Error('Failed to create admin user');
   }
@@ -120,7 +120,8 @@ export function setup() {
 }
 
 export default function(data) {
-  const userId = `soak_user_${__VU}_${__ITER}`;
+  const timestamp = Date.now();
+  const userId = `soak_user_${__VU}_${__ITER}_${timestamp}`;
 
   // Register and login
   const token = registerAndLogin(userId);

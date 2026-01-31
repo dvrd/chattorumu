@@ -1,4 +1,4 @@
-import ws from 'k6/experimental/websockets';
+import ws from 'k6/ws';
 import { check } from 'k6';
 import * as metrics from './metrics.js';
 
@@ -67,7 +67,7 @@ export function chatSession(chatroomId, token, options = {}) {
     onMessage = null,
   } = options;
 
-  const url = `${BASE_WS_URL}/ws?chatroom_id=${chatroomId}&token=${token}`;
+  const url = `${BASE_WS_URL}/ws/chat/${chatroomId}?token=${token}`;
 
   const stats = {
     connected: false,
@@ -187,7 +187,7 @@ export function chatSession(chatroomId, token, options = {}) {
  * @returns {boolean} Success status
  */
 export function connectAndHold(chatroomId, token, duration = 30) {
-  const url = `${BASE_WS_URL}/ws?chatroom_id=${chatroomId}&token=${token}`;
+  const url = `${BASE_WS_URL}/ws/chat/${chatroomId}?token=${token}`;
 
   let connected = false;
 
