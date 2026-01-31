@@ -53,7 +53,7 @@ export function login(username, password) {
     'login returns token': (r) => {
       try {
         const body = JSON.parse(r.body);
-        return body.token !== undefined;
+        return body.session_token !== undefined;
       } catch (e) {
         return false;
       }
@@ -67,7 +67,7 @@ export function login(username, password) {
 
   try {
     const body = JSON.parse(res.body);
-    return body.token;
+    return body.session_token;
   } catch (e) {
     console.error(`Failed to parse login response: ${e}`);
     return null;
