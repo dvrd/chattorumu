@@ -36,10 +36,21 @@ tasks:
 
   test:unit:
     desc: Run unit tests with coverage
-    silent: true
+    vars:
+      COVER_PKGS: >-
+        jobsity-chat/internal/config,
+        jobsity-chat/internal/domain,
+        jobsity-chat/internal/handler,
+        jobsity-chat/internal/messaging,
+        jobsity-chat/internal/middleware,
+        jobsity-chat/internal/observability,
+        jobsity-chat/internal/repository/postgres,
+        jobsity-chat/internal/service,
+        jobsity-chat/internal/stock,
+        jobsity-chat/internal/websocket
     cmds:
       - echo "🧪 Running unit tests..."
-      - go test -v -race -coverprofile=coverage-unit.out ./internal/...
+      - go test -race -coverprofile=coverage-unit.out -coverpkg={{.COVER_PKGS | replace "\n" "" | replace " " ""}} ./internal/...
       - go tool cover -html=coverage-unit.out -o coverage-unit.html
       - echo "✅ Unit tests complete - coverage-unit.html generated"
 
@@ -50,19 +61,30 @@ tasks:
       - echo "⚠️  Ensure Docker daemon is running (docker info)"
       - echo "📦 First run will download PostgreSQL (~100MB)"
       - echo ""
-      - go test -v -tags=integration -coverprofile=coverage-integration.out -timeout 5m ./internal/repository/postgres/...
+      - go test -race -tags=integration -coverprofile=coverage-integration.out -coverpkg=jobsity-chat/internal/repository/postgres -timeout 5m ./internal/repository/postgres/...
       - go tool cover -html=coverage-integration.out -o coverage-integration.html
       - echo "✅ Integration tests complete - coverage-integration.html generated"
 
   test:e2e:
     desc: Run all E2E tests (requires Docker)
-    silent: true
+    vars:
+      COVER_PKGS: >-
+        jobsity-chat/internal/config,
+        jobsity-chat/internal/domain,
+        jobsity-chat/internal/handler,
+        jobsity-chat/internal/messaging,
+        jobsity-chat/internal/middleware,
+        jobsity-chat/internal/observability,
+        jobsity-chat/internal/repository/postgres,
+        jobsity-chat/internal/service,
+        jobsity-chat/internal/stock,
+        jobsity-chat/internal/websocket
     cmds:
       - echo "🐳 Running E2E tests..."
       - echo "⚠️  Ensure Docker daemon is running (docker info)"
       - echo "📦 First run will download PostgreSQL (~100MB) and RabbitMQ (~50MB)"
       - echo ""
-      - go test -v -tags=e2e -coverprofile=coverage-e2e.out -timeout 10m ./tests/e2e/...
+      - go test -race -tags=e2e -coverprofile=coverage-e2e.out -coverpkg={{.COVER_PKGS | replace "\n" "" | replace " " ""}} -timeout 10m ./tests/e2e/...
       - go tool cover -html=coverage-e2e.out -o coverage-e2e.html
       - echo "✅ E2E tests complete - coverage-e2e.html generated"
 
@@ -86,12 +108,14 @@ tasks:
   coverage:
     desc: Show coverage report in terminal
     deps: [test:unit]
+    silent: true
     cmds:
       - go tool cover -func=coverage-unit.out
 
   coverage:all:
     desc: Show combined coverage report in terminal
     deps: [test:all]
+    silent: true
     cmds:
       - go tool cover -func=coverage.out
 
