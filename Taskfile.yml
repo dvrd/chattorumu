@@ -31,31 +31,67 @@ tasks:
       - go run ./cmd/stock-bot
 
   tests:
-    desc: Run all tests (unit + e2e)
-    deps: [test:unit, test:e2e]
+    desc: Run all tests (unit + integration + e2e)
+    deps: [test:unit, test:integration, test:e2e]
 
   test:unit:
     desc: Run unit tests with coverage
+    silent: true
     cmds:
       - echo "🧪 Running unit tests..."
-      - go test -v -race -short -coverprofile=coverage.out ./tests/unit/...
-      - go tool cover -html=coverage.out -o coverage.html
-      - echo "✅ Unit tests complete - coverage.html generated"
+      - go test -v -race -coverprofile=coverage-unit.out ./internal/...
+      - go tool cover -html=coverage-unit.out -o coverage-unit.html
+      - echo "✅ Unit tests complete - coverage-unit.html generated"
+
+  test:integration:
+    desc: Run integration tests (requires Docker)
+    cmds:
+      - echo "🔌 Running integration tests..."
+      - echo "⚠️  Ensure Docker daemon is running (docker info)"
+      - echo "📦 First run will download PostgreSQL (~100MB)"
+      - echo ""
+      - go test -v -tags=integration -coverprofile=coverage-integration.out -timeout 5m ./internal/repository/postgres/...
+      - go tool cover -html=coverage-integration.out -o coverage-integration.html
+      - echo "✅ Integration tests complete - coverage-integration.html generated"
 
   test:e2e:
     desc: Run all E2E tests (requires Docker)
+    silent: true
     cmds:
       - echo "🐳 Running E2E tests..."
       - echo "⚠️  Ensure Docker daemon is running (docker info)"
       - echo "📦 First run will download PostgreSQL (~100MB) and RabbitMQ (~50MB)"
       - echo ""
-      - go test -v -tags=e2e -coverprofile=coverage.out -timeout 10m ./tests/e2e/...
+      - go test -v -tags=e2e -coverprofile=coverage-e2e.out -timeout 10m ./tests/e2e/...
+      - go tool cover -html=coverage-e2e.out -o coverage-e2e.html
+      - echo "✅ E2E tests complete - coverage-e2e.html generated"
+
+  test:all:
+    desc: Run all tests and merge coverage
+    cmds:
+      - echo "🧪 Running all tests..."
+      - task test:unit
+      - task test:integration
+      - task test:e2e
+      - echo ""
+      - echo "📊 Merging coverage reports..."
+      - |
+        echo "mode: set" > coverage.out
+        tail -n +2 coverage-unit.out >> coverage.out 2>/dev/null || true
+        tail -n +2 coverage-integration.out >> coverage.out 2>/dev/null || true
+        tail -n +2 coverage-e2e.out >> coverage.out 2>/dev/null || true
       - go tool cover -html=coverage.out -o coverage.html
-      - echo "✅ E2E tests complete - coverage.html generated"
+      - echo "✅ All tests complete - coverage.html generated"
 
   coverage:
     desc: Show coverage report in terminal
     deps: [test:unit]
+    cmds:
+      - go tool cover -func=coverage-unit.out
+
+  coverage:all:
+    desc: Show combined coverage report in terminal
+    deps: [test:all]
     cmds:
       - go tool cover -func=coverage.out
 
@@ -169,6 +205,9 @@ tasks:
       - echo "Cleaning..."
       - rm -rf bin/
       - rm -f coverage.out coverage.html
+      - rm -f coverage-unit.out coverage-unit.html
+      - rm -f coverage-integration.out coverage-integration.html
+      - rm -f coverage-e2e.out coverage-e2e.html
       - echo "Clean complete!"
 
   dev:
