@@ -76,7 +76,7 @@ export function setup() {
   console.log('');
 
   // Create admin and chatroom
-  const adminToken = registerAndLogin('spike-test-admin');
+  const adminToken = registerAndLogin('spike_test_admin');
   if (!adminToken) {
     throw new Error('Failed to create admin user');
   }
