@@ -70,7 +70,7 @@ export function setup() {
   console.log('');
 
   // Create admin user
-  const adminToken = registerAndLogin('chat-test-admin');
+  const adminToken = registerAndLogin('chat_test_admin');
   if (!adminToken) {
     throw new Error('Failed to create admin user');
   }

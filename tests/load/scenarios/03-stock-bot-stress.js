@@ -73,7 +73,7 @@ export function setup() {
   console.log('');
 
   // Create admin user and chatroom
-  const adminToken = registerAndLogin('stock-test-admin');
+  const adminToken = registerAndLogin('stock_test_admin');
   if (!adminToken) {
     throw new Error('Failed to create admin user');
   }

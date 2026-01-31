@@ -61,7 +61,7 @@ export function setup() {
   console.log('');
 
   // Create a test user and chatroom for setup
-  const adminToken = registerAndLogin('load-test-admin');
+  const adminToken = registerAndLogin('load_test_admin');
   if (!adminToken) {
     throw new Error('Failed to create admin user for setup');
   }

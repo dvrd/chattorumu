@@ -103,7 +103,7 @@ export function setup() {
   console.log('');
 
   // Create admin
-  const adminToken = registerAndLogin('multiroom-admin');
+  const adminToken = registerAndLogin('multiroom_admin');
   if (!adminToken) {
     throw new Error('Failed to create admin user');
   }

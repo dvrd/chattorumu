@@ -94,7 +94,7 @@ export function setup() {
   }
 
   // Create admin and chatrooms
-  const adminToken = registerAndLogin('soak-test-admin');
+  const adminToken = registerAndLogin('soak_test_admin');
   if (!adminToken) {
     throw new Error('Failed to create admin user');
   }
