@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -12,6 +13,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 )
+
+// truncateToken safely truncates a token for logging purposes
+func truncateToken(token string) string {
+	if len(token) <= 8 {
+		return token + "..."
+	}
+	return token[:8] + "..."
+}
 
 func createUpgrader(allowedOrigins []string) websocket.Upgrader {
 	return websocket.Upgrader{
@@ -89,14 +98,14 @@ func (h *WebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Reque
 	}
 
 	slog.Debug("websocket auth attempt",
-		slog.String("token", sessionToken[:8]+"..."),
+		slog.String("token", truncateToken(sessionToken)),
 		slog.String("chatroom_id", chi.URLParam(r, "chatroom_id")))
 
 	session, err := h.sessionRepo.GetByToken(r.Context(), sessionToken)
 	if err != nil {
 		slog.Warn("websocket auth failed: invalid session",
 			slog.String("error", err.Error()),
-			slog.String("token_prefix", sessionToken[:8]+"..."),
+			slog.String("token_prefix", truncateToken(sessionToken)),
 			slog.String("remote_addr", r.RemoteAddr))
 		http.Error(w, `{"error":"Invalid or expired session"}`, http.StatusUnauthorized)
 		return
@@ -135,7 +144,9 @@ func (h *WebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	client := ws.NewClient(r.Context(), h.hub, conn, userID, user.Username, chatroomID, h.chatService, h.publisher)
+	// Use background context for the client since the HTTP request context
+	// will be cancelled after the upgrade completes
+	client := ws.NewClient(context.Background(), h.hub, conn, userID, user.Username, chatroomID, h.chatService, h.publisher)
 
 	h.hub.Register(client)
 
