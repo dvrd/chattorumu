@@ -138,7 +138,8 @@ func TestUserRepository_Integration(t *testing.T) {
 	pg, cleanup := setupPostgres(t)
 	defer cleanup()
 
-	repo := postgres.NewUserRepository(pg.db)
+	repo, err := postgres.NewUserRepository(pg.db)
+	require.NoError(t, err, "failed to create user repository")
 
 	t.Run("Create_and_GetByID", func(t *testing.T) {
 		user := &domain.User{

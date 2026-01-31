@@ -9,13 +9,15 @@ import (
 )
 
 type MessageRepository struct {
-	db                       *sql.DB
-	createStmt               *sql.Stmt
-	getByChatroomStmt        *sql.Stmt
-	getByChatroomBeforeStmt  *sql.Stmt
+	db                      *sql.DB
+	createStmt              *sql.Stmt
+	getByChatroomStmt       *sql.Stmt
+	getByChatroomBeforeStmt *sql.Stmt
 }
 
-func NewMessageRepository(db *sql.DB) *MessageRepository {
+// NewMessageRepository creates a new MessageRepository with prepared statements.
+// Returns an error if statement preparation fails.
+func NewMessageRepository(db *sql.DB) (*MessageRepository, error) {
 	repo := &MessageRepository{db: db}
 
 	var err error
@@ -25,7 +27,7 @@ func NewMessageRepository(db *sql.DB) *MessageRepository {
 		RETURNING id, created_at
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare create statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare create statement: %w", err)
 	}
 
 	repo.getByChatroomStmt, err = db.Prepare(`
@@ -41,7 +43,7 @@ func NewMessageRepository(db *sql.DB) *MessageRepository {
 		ORDER BY created_at ASC
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare getByChatroom statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare getByChatroom statement: %w", err)
 	}
 
 	repo.getByChatroomBeforeStmt, err = db.Prepare(`
@@ -57,10 +59,10 @@ func NewMessageRepository(db *sql.DB) *MessageRepository {
 		ORDER BY created_at ASC
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare getByChatroomBefore statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare getByChatroomBefore statement: %w", err)
 	}
 
-	return repo
+	return repo, nil
 }
 
 func (r *MessageRepository) Create(ctx context.Context, message *domain.Message) error {

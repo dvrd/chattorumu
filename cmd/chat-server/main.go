@@ -66,10 +66,29 @@ func main() {
 	}
 	defer rmq.Close()
 
-	userRepo := postgres.NewUserRepository(db)
-	sessionRepo := postgres.NewSessionRepository(db)
-	messageRepo := postgres.NewMessageRepository(db)
-	chatroomRepo := postgres.NewChatroomRepository(db)
+	userRepo, err := postgres.NewUserRepository(db)
+	if err != nil {
+		slog.Error("failed to create user repository", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	sessionRepo, err := postgres.NewSessionRepository(db)
+	if err != nil {
+		slog.Error("failed to create session repository", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	messageRepo, err := postgres.NewMessageRepository(db)
+	if err != nil {
+		slog.Error("failed to create message repository", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	chatroomRepo, err := postgres.NewChatroomRepository(db)
+	if err != nil {
+		slog.Error("failed to create chatroom repository", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 
 	authService := service.NewAuthService(userRepo, sessionRepo)
 	chatService := service.NewChatService(messageRepo, chatroomRepo)
@@ -206,7 +225,8 @@ func main() {
 	slog.Info("server stopped gracefully")
 }
 
-// ensureBotUser creates a bot user if it doesn't exist (idempotent)
+// ensureBotUser creates a bot user if it doesn't exist (idempotent).
+// Exits the program if the bot user cannot be initialized.
 func ensureBotUser(authService *service.AuthService) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -226,7 +246,7 @@ func ensureBotUser(authService *service.AuthService) string {
 		if err != nil {
 			slog.Error("bot user exists but cannot fetch",
 				slog.String("error", err.Error()))
-			panic("could not initialize stock bot user: " + err.Error())
+			os.Exit(1)
 		}
 		slog.Info("using existing bot user",
 			slog.String("username", botUser.Username),
@@ -235,8 +255,10 @@ func ensureBotUser(authService *service.AuthService) string {
 
 	default:
 		slog.Error("failed to ensure bot user", slog.String("error", err.Error()))
-		panic("could not initialize stock bot user: " + err.Error())
+		os.Exit(1)
 	}
+
+	return "" // unreachable, but needed for compiler
 }
 
 // startSessionCleanup runs a background task to delete expired sessions

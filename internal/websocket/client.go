@@ -32,6 +32,7 @@ type Client struct {
 	publisher   MessagePublisher
 	writeMu     sync.Mutex
 	closed      atomic.Bool
+	sendClosed  atomic.Bool // Guards against double-close of send channel
 	ctx         context.Context
 	ctxCancel   context.CancelFunc
 }
@@ -278,11 +279,19 @@ func (c *Client) writeMessage(messageType int, data []byte) error {
 	return c.conn.WriteMessage(messageType, data)
 }
 
-// closeConnection safely closes the WebSocket connection
+// closeConnection safely closes the WebSocket connection.
 func (c *Client) closeConnection() {
 	if c.closed.CompareAndSwap(false, true) {
 		c.writeMu.Lock()
 		c.conn.Close()
 		c.writeMu.Unlock()
+	}
+}
+
+// closeSendOnce safely closes the send channel exactly once.
+// Uses atomic bool to prevent double-close panic.
+func (c *Client) closeSendOnce() {
+	if c.sendClosed.CompareAndSwap(false, true) {
+		close(c.send)
 	}
 }

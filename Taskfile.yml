@@ -306,6 +306,7 @@ tasks:
 
   load:run:all:
     desc: Run all load test scenarios
+    silent: true
     cmds:
       - echo "Running all load test scenarios"
       - task load:run:connection

@@ -270,10 +270,25 @@ func runMigrations(db *sql.DB) error {
 // setupChatServer creates and starts the chat server
 func setupChatServer(db *sql.DB, rmq *messaging.RabbitMQ) (func(), error) {
 	// Create repositories
-	userRepo := postgres.NewUserRepository(db)
-	sessionRepo := postgres.NewSessionRepository(db)
-	chatroomRepo := postgres.NewChatroomRepository(db)
-	messageRepo := postgres.NewMessageRepository(db)
+	userRepo, err := postgres.NewUserRepository(db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user repository: %w", err)
+	}
+
+	sessionRepo, err := postgres.NewSessionRepository(db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session repository: %w", err)
+	}
+
+	chatroomRepo, err := postgres.NewChatroomRepository(db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chatroom repository: %w", err)
+	}
+
+	messageRepo, err := postgres.NewMessageRepository(db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create message repository: %w", err)
+	}
 
 	// Create services
 	authService := service.NewAuthService(userRepo, sessionRepo)
