@@ -17,7 +17,9 @@ type ChatroomRepository struct {
 	isMemberStmt  *sql.Stmt
 }
 
-func NewChatroomRepository(db *sql.DB) *ChatroomRepository {
+// NewChatroomRepository creates a new ChatroomRepository with prepared statements.
+// Returns an error if statement preparation fails.
+func NewChatroomRepository(db *sql.DB) (*ChatroomRepository, error) {
 	repo := &ChatroomRepository{
 		db: db,
 		tm: NewTxManager(db),
@@ -30,7 +32,7 @@ func NewChatroomRepository(db *sql.DB) *ChatroomRepository {
 		RETURNING id, created_at
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare create statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare create statement: %w", err)
 	}
 
 	repo.getByIDStmt, err = db.Prepare(`
@@ -39,7 +41,7 @@ func NewChatroomRepository(db *sql.DB) *ChatroomRepository {
 		WHERE id = $1
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare getByID statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare getByID statement: %w", err)
 	}
 
 	repo.addMemberStmt, err = db.Prepare(`
@@ -48,7 +50,7 @@ func NewChatroomRepository(db *sql.DB) *ChatroomRepository {
 		ON CONFLICT (chatroom_id, user_id) DO NOTHING
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare addMember statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare addMember statement: %w", err)
 	}
 
 	repo.isMemberStmt, err = db.Prepare(`
@@ -58,10 +60,10 @@ func NewChatroomRepository(db *sql.DB) *ChatroomRepository {
 		)
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare isMember statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare isMember statement: %w", err)
 	}
 
-	return repo
+	return repo, nil
 }
 
 func (r *ChatroomRepository) Create(ctx context.Context, chatroom *domain.Chatroom) error {

@@ -17,7 +17,9 @@ type SessionRepository struct {
 	deleteExpiredStmt *sql.Stmt
 }
 
-func NewSessionRepository(db *sql.DB) *SessionRepository {
+// NewSessionRepository creates a new SessionRepository with prepared statements.
+// Returns an error if statement preparation fails.
+func NewSessionRepository(db *sql.DB) (*SessionRepository, error) {
 	repo := &SessionRepository{db: db}
 
 	var err error
@@ -27,7 +29,7 @@ func NewSessionRepository(db *sql.DB) *SessionRepository {
 		RETURNING id, created_at
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare create statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare create statement: %w", err)
 	}
 
 	repo.getByTokenStmt, err = db.Prepare(`
@@ -36,20 +38,20 @@ func NewSessionRepository(db *sql.DB) *SessionRepository {
 		WHERE token = $1 AND expires_at > $2
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare getByToken statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare getByToken statement: %w", err)
 	}
 
 	repo.deleteStmt, err = db.Prepare(`DELETE FROM sessions WHERE token = $1`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare delete statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare delete statement: %w", err)
 	}
 
 	repo.deleteExpiredStmt, err = db.Prepare(`DELETE FROM sessions WHERE expires_at <= $1`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare deleteExpired statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare deleteExpired statement: %w", err)
 	}
 
-	return repo
+	return repo, nil
 }
 
 func (r *SessionRepository) Create(ctx context.Context, session *domain.Session) error {

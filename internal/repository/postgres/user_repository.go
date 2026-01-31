@@ -15,7 +15,9 @@ type UserRepository struct {
 	getByUsernameStmt *sql.Stmt
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
+// NewUserRepository creates a new UserRepository with prepared statements.
+// Returns an error if statement preparation fails.
+func NewUserRepository(db *sql.DB) (*UserRepository, error) {
 	repo := &UserRepository{db: db}
 
 	var err error
@@ -25,7 +27,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 		RETURNING id, created_at
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare create statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare create statement: %w", err)
 	}
 
 	repo.getByIDStmt, err = db.Prepare(`
@@ -34,7 +36,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 		WHERE id = $1
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare getByID statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare getByID statement: %w", err)
 	}
 
 	repo.getByUsernameStmt, err = db.Prepare(`
@@ -43,10 +45,10 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 		WHERE username = $1
 	`)
 	if err != nil {
-		panic(fmt.Sprintf("failed to prepare getByUsername statement: %v", err))
+		return nil, fmt.Errorf("failed to prepare getByUsername statement: %w", err)
 	}
 
-	return repo
+	return repo, nil
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {

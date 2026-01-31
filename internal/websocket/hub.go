@@ -9,21 +9,44 @@ import (
 	"jobsity-chat/internal/observability"
 )
 
+// BroadcastMessage represents a message to be sent to all clients in a chatroom.
 type BroadcastMessage struct {
 	ChatroomID string
 	Message    []byte
 }
 
+// Hub maintains the set of active clients and broadcasts messages to them.
+// All client map operations happen in the Run loop to avoid data races.
+// The mutex is only used for read-only access from external goroutines
+// (GetConnectedUserCount, GetAllConnectedCounts).
 type Hub struct {
-	mu              sync.RWMutex
-	clients         map[string]map[*Client]bool
-	broadcast       chan *BroadcastMessage
-	register        chan *Client
-	unregister      chan *Client
+	// mutex protects read-only access to clients map from external goroutines.
+	// Write access is only done in Run() loop, so no lock needed there.
+	mutex sync.RWMutex
+
+	// clients maps chatroom IDs to connected clients.
+	// Only modified in Run() loop.
+	clients map[string]map[*Client]bool
+
+	// broadcast channel for sending messages to all clients in a chatroom.
+	// Buffer of 256 allows burst handling without blocking senders.
+	broadcast chan *BroadcastMessage
+
+	// register channel for new client connections.
+	register chan *Client
+
+	// unregister channel for client disconnections.
+	unregister chan *Client
+
+	// userCountUpdate triggers sending user count updates to all clients.
+	// Buffer of 10 prevents blocking on rapid connect/disconnect.
 	userCountUpdate chan struct{}
-	done            chan struct{}
+
+	// done signals hub shutdown completion.
+	done chan struct{}
 }
 
+// NewHub creates a new Hub instance.
 func NewHub() *Hub {
 	return &Hub{
 		clients:         make(map[string]map[*Client]bool),
@@ -35,6 +58,9 @@ func NewHub() *Hub {
 	}
 }
 
+// Run starts the hub's main event loop. It handles client registration,
+// unregistration, broadcasts, and user count updates.
+// All client map modifications happen here to avoid data races.
 func (h *Hub) Run(ctx context.Context) error {
 	defer h.shutdown()
 
@@ -45,10 +71,13 @@ func (h *Hub) Run(ctx context.Context) error {
 			return ctx.Err()
 
 		case client := <-h.register:
+			h.mutex.Lock()
 			if h.clients[client.chatroomID] == nil {
 				h.clients[client.chatroomID] = make(map[*Client]bool)
 			}
 			h.clients[client.chatroomID][client] = true
+			h.mutex.Unlock()
+
 			observability.WebSocketConnectionsActive.WithLabelValues(client.chatroomID).Inc()
 			slog.Info("client registered",
 				slog.String("user", client.username),
@@ -71,15 +100,28 @@ func (h *Hub) Run(ctx context.Context) error {
 			h.sendUserCountUpdate()
 
 		case message := <-h.broadcast:
-			if clients, ok := h.clients[message.ChatroomID]; ok {
+			h.mutex.RLock()
+			clients, ok := h.clients[message.ChatroomID]
+			h.mutex.RUnlock()
+
+			if ok {
+				var clientsToRemove []*Client
 				for client := range clients {
 					select {
 					case client.send <- message.Message:
 						observability.WebSocketMessagesSent.WithLabelValues(message.ChatroomID, "broadcast").Inc()
 					default:
-						h.closeClientSend(client)
-						delete(clients, client)
+						clientsToRemove = append(clientsToRemove, client)
 					}
+				}
+				// Remove clients with full send buffers
+				if len(clientsToRemove) > 0 {
+					h.mutex.Lock()
+					for _, client := range clientsToRemove {
+						client.closeSendOnce()
+						delete(h.clients[message.ChatroomID], client)
+					}
+					h.mutex.Unlock()
 				}
 			}
 		}
@@ -87,36 +129,39 @@ func (h *Hub) Run(ctx context.Context) error {
 }
 
 func (h *Hub) unregisterClient(client *Client) {
-	if clients, ok := h.clients[client.chatroomID]; ok {
-		if _, ok := clients[client]; ok {
-			delete(clients, client)
-			h.closeClientSend(client)
-			observability.WebSocketConnectionsActive.WithLabelValues(client.chatroomID).Dec()
-			slog.Info("client unregistered",
-				slog.String("user", client.username),
-				slog.String("chatroom_id", client.chatroomID))
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
 
-			if len(clients) == 0 {
-				delete(h.clients, client.chatroomID)
-			}
-		}
+	clients, ok := h.clients[client.chatroomID]
+	if !ok {
+		return
 	}
-}
 
-func (h *Hub) closeClientSend(client *Client) {
-	select {
-	case <-client.send:
-	default:
-		close(client.send)
+	if _, exists := clients[client]; !exists {
+		return
+	}
+
+	delete(clients, client)
+	client.closeSendOnce()
+	observability.WebSocketConnectionsActive.WithLabelValues(client.chatroomID).Dec()
+	slog.Info("client unregistered",
+		slog.String("user", client.username),
+		slog.String("chatroom_id", client.chatroomID))
+
+	if len(clients) == 0 {
+		delete(h.clients, client.chatroomID)
 	}
 }
 
 func (h *Hub) shutdown() {
 	close(h.done)
 
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
 	for chatroomID, clients := range h.clients {
 		for client := range clients {
-			h.closeClientSend(client)
+			client.closeSendOnce()
 			slog.Info("closed client connection",
 				slog.String("user", client.username),
 				slog.String("chatroom_id", chatroomID))
@@ -141,9 +186,11 @@ func (h *Hub) Unregister(client *Client) {
 	h.unregister <- client
 }
 
+// GetConnectedUserCount returns the number of connected users in a chatroom.
+// Thread-safe for external callers.
 func (h *Hub) GetConnectedUserCount(chatroomID string) int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
 
 	if clients, ok := h.clients[chatroomID]; ok {
 		return len(clients)
@@ -151,9 +198,11 @@ func (h *Hub) GetConnectedUserCount(chatroomID string) int {
 	return 0
 }
 
+// GetAllConnectedCounts returns user counts for all chatrooms.
+// Thread-safe for external callers.
 func (h *Hub) GetAllConnectedCounts() map[string]int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
 
 	counts := make(map[string]int)
 	for chatroomID, clients := range h.clients {
