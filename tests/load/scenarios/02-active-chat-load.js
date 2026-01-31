@@ -70,7 +70,8 @@ export function setup() {
   console.log('');
 
   // Create admin user
-  const adminToken = registerAndLogin('chat_test_admin');
+  const adminUsername = `chat_test_admin_${Date.now()}`;
+  const adminToken = registerAndLogin(adminUsername);
   if (!adminToken) {
     throw new Error('Failed to create admin user');
   }
@@ -97,7 +98,8 @@ export function setup() {
 }
 
 export default function(data) {
-  const userId = `chat_user_${__VU}_${__ITER}`;
+  const timestamp = Date.now();
+  const userId = `chat_user_${__VU}_${__ITER}_${timestamp}`;
 
   // Register and login
   const token = registerAndLogin(userId);
