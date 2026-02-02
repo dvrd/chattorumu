@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Pre-push hook to run linting before pushing
+
+set -e
+
+echo "🔍 Running linter before push..."
+
+# Check if golangci-lint is installed
+if ! command -v golangci-lint &> /dev/null; then
+    echo "❌ golangci-lint is not installed"
+    echo "Install it with: brew install golangci-lint"
+    exit 1
+fi
+
+# Run golangci-lint
+if golangci-lint run ./... --timeout=5m; then
+    echo "✅ Linting passed"
+    exit 0
+else
+    echo "❌ Linting failed. Please fix the errors before pushing."
+    exit 1
+fi
