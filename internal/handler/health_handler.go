@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -12,16 +13,20 @@ import (
 
 func Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"status": "ok",
-	})
+	}); err != nil {
+		slog.Error("failed to encode health response", slog.String("error", err.Error()))
+		return
+	}
 }
 
 type HealthCheckResult struct {
-	Status    string        `json:"status"`
-	LatencyMs int64         `json:"latency_ms,omitempty"`
+	Status    string         `json:"status"`
+	LatencyMs int64          `json:"latency_ms,omitempty"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
-	Error     string        `json:"error,omitempty"`
+	Error     string         `json:"error,omitempty"`
 }
 
 func Ready(db *sql.DB, rmq *messaging.RabbitMQ) http.HandlerFunc {
@@ -63,7 +68,10 @@ func Ready(db *sql.DB, rmq *messaging.RabbitMQ) http.HandlerFunc {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
 
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			slog.Error("failed to encode ready response", slog.String("error", err.Error()))
+			return
+		}
 	}
 }
 
