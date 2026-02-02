@@ -132,22 +132,45 @@ func setupTestEnvironment(ctx context.Context) (func(), error) {
 }
 
 // streamContainerLogs starts a goroutine that streams container logs to stdout with a prefix
+// Uses a short timeout to read current logs without blocking indefinitely
 func streamContainerLogs(ctx context.Context, container testcontainers.Container, prefix string) {
 	go func() {
-		reader, err := container.Logs(ctx)
+		// Use a short timeout for reading logs to avoid indefinite blocking
+		logCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel()
+
+		reader, err := container.Logs(logCtx)
 		if err != nil {
-			log.Printf("[%s] failed to get logs: %v", prefix, err)
+			// Silently continue - logs may not be available yet
 			return
 		}
 		defer reader.Close()
 
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			log.Printf("[%s] %s", prefix, scanner.Text())
-		}
+		// Read available logs with a channel for non-blocking operation
+		lineCh := make(chan string, 100)
+		errCh := make(chan error, 1)
 
-		if err := scanner.Err(); err != nil && err != io.EOF {
-			log.Printf("[%s] log reader error: %v", prefix, err)
+		go func() {
+			scanner := bufio.NewScanner(reader)
+			for scanner.Scan() {
+				lineCh <- scanner.Text()
+			}
+			errCh <- scanner.Err()
+		}()
+
+		// Collect lines until context timeout or channel close
+		for {
+			select {
+			case line := <-lineCh:
+				log.Printf("[%s] %s", prefix, line)
+			case err := <-errCh:
+				if err != nil && err != io.EOF && err != context.DeadlineExceeded {
+					log.Printf("[%s] log reader error: %v", prefix, err)
+				}
+				return
+			case <-logCtx.Done():
+				return
+			}
 		}
 	}()
 }
