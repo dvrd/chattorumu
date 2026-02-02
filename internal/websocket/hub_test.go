@@ -435,3 +435,119 @@ func (m *mockConn) WriteMessage(messageType int, data []byte) error {
 func (m *mockConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
+
+// TestHub_GetConnectedUserCount tests the GetConnectedUserCount method
+func TestHub_GetConnectedUserCount(t *testing.T) {
+	hub := NewHub()
+	ctx, cancel := context.WithCancel(context.Background())
+	go hub.Run(ctx)
+	defer func() {
+		cancel()
+		<-hub.done
+	}()
+
+	// Test empty chatroom
+	if count := hub.GetConnectedUserCount("room1"); count != 0 {
+		t.Errorf("Expected 0 for empty chatroom, got %d", count)
+	}
+
+	// Register two clients
+	client1 := &Client{
+		hub:        hub,
+		send:       make(chan []byte, 256),
+		userID:     "user1",
+		username:   "alice",
+		chatroomID: "room1",
+	}
+
+	client2 := &Client{
+		hub:        hub,
+		send:       make(chan []byte, 256),
+		userID:     "user2",
+		username:   "bob",
+		chatroomID: "room1",
+	}
+
+	hub.Register(client1)
+	time.Sleep(10 * time.Millisecond)
+
+	if count := hub.GetConnectedUserCount("room1"); count != 1 {
+		t.Errorf("Expected 1 after first register, got %d", count)
+	}
+
+	hub.Register(client2)
+	time.Sleep(10 * time.Millisecond)
+
+	if count := hub.GetConnectedUserCount("room1"); count != 2 {
+		t.Errorf("Expected 2 after second register, got %d", count)
+	}
+
+	// Unregister one
+	hub.Unregister(client1)
+	time.Sleep(10 * time.Millisecond)
+
+	if count := hub.GetConnectedUserCount("room1"); count != 1 {
+		t.Errorf("Expected 1 after unregister, got %d", count)
+	}
+}
+
+// TestHub_GetAllConnectedCounts tests the GetAllConnectedCounts method
+func TestHub_GetAllConnectedCounts(t *testing.T) {
+	hub := NewHub()
+	ctx, cancel := context.WithCancel(context.Background())
+	go hub.Run(ctx)
+	defer func() {
+		cancel()
+		<-hub.done
+	}()
+
+	// Test empty hub
+	if counts := hub.GetAllConnectedCounts(); len(counts) != 0 {
+		t.Errorf("Expected empty counts, got %v", counts)
+	}
+
+	// Register clients in different rooms
+	client1 := &Client{
+		hub:        hub,
+		send:       make(chan []byte, 256),
+		userID:     "user1",
+		username:   "alice",
+		chatroomID: "room1",
+	}
+
+	client2 := &Client{
+		hub:        hub,
+		send:       make(chan []byte, 256),
+		userID:     "user2",
+		username:   "bob",
+		chatroomID: "room1",
+	}
+
+	client3 := &Client{
+		hub:        hub,
+		send:       make(chan []byte, 256),
+		userID:     "user3",
+		username:   "charlie",
+		chatroomID: "room2",
+	}
+
+	hub.Register(client1)
+	time.Sleep(10 * time.Millisecond)
+	hub.Register(client2)
+	time.Sleep(10 * time.Millisecond)
+	hub.Register(client3)
+	time.Sleep(10 * time.Millisecond)
+
+	counts := hub.GetAllConnectedCounts()
+	if len(counts) != 2 {
+		t.Errorf("Expected 2 rooms, got %d", len(counts))
+	}
+
+	if counts["room1"] != 2 {
+		t.Errorf("Expected room1 count=2, got %d", counts["room1"])
+	}
+
+	if counts["room2"] != 1 {
+		t.Errorf("Expected room2 count=1, got %d", counts["room2"])
+	}
+}
