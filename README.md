@@ -41,51 +41,68 @@ scoop install task
 
 ## Quick Start
 
+Prerequisites: Docker and Docker Compose must be installed and running.
+
 ```bash
-# Start all services
+# Start all services (Docker Compose)
 task docker:run
 
-# Run database migrations
-task docker:migrate:up
-
-# Access the application
+# Wait for services to be ready (~30 seconds)
 # Chat: http://localhost:8080
-# RabbitMQ UI: http://localhost:15672 (guest/guest)
+# Swagger UI: http://localhost:8081
+# RabbitMQ Management: http://localhost:15672 (guest/guest)
 ```
+
+**Note:** Database migrations run automatically during service startup.
 
 ## Local Development
 
+### Prerequisites
+- PostgreSQL 13+
+- RabbitMQ 3.12+
+- Go 1.21+
+
+### Setup
+
 ```bash
-# Install dependencies
-task init
+# Install and start PostgreSQL
+brew install postgresql
+brew services start postgresql
+
+# Create database and user
+psql -U postgres << EOF
+CREATE USER jobsity WITH PASSWORD 'jobsity123';
+CREATE DATABASE jobsity_chat OWNER jobsity;
+GRANT ALL PRIVILEGES ON DATABASE jobsity_chat TO jobsity;
+EOF
+
+psql -U postgres -d jobsity_chat << EOF
+GRANT ALL ON SCHEMA public TO jobsity;
+GRANT CREATE ON SCHEMA public TO jobsity;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO jobsity;
+EOF
+
+# Install and start RabbitMQ
 brew install rabbitmq
 brew services start rabbitmq
 
-# Setup database
+# Download Go dependencies
+go mod download
+```
 
-psql -U postgres
+### Running Locally
 
-# CREATE USER jobsity WITH PASSWORD 'jobsity123';
-# CREATE DATABASE jobsity_chat;
-# GRANT ALL PRIVILEGES ON DATABASE jobsity_chat TO jobsity;
-
-psql -U postgres -d jobsity_chat
-
-# GRANT ALL ON SCHEMA public TO jobsity;
-# GRANT CREATE ON SCHEMA public TO jobsity;
-# ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO jobsity;
-
-# Run chat server
+```bash
+# Run chat server (on port 8080)
 task run:server
 
-# Run stock bot (in another terminal)
+# Run stock bot in another terminal
 task run:bot
 
-# Run tests
-task tests
-
-# Run integration tests
-task tests:integration
+# In another terminal, run tests
+task test          # Run all tests (unit + E2E)
+task test:unit     # Run unit tests only (~2 min, no Docker needed)
+task test:e2e      # Run E2E tests only (~3 min, requires Docker)
 ```
 
 ## Environment Variables
@@ -164,20 +181,94 @@ Send `/stock=AAPL.US` in the chat to get stock quotes.
 
 Bot responds with: `AAPL.US quote is $93.42 per share`
 
+### Stock Bot Flow
+
+```
+User sends /stock=AAPL.US
+        ↓
+Chat Server (WebSocket) receives message
+        ↓
+Publishes to RabbitMQ: "chat.commands" exchange
+        ↓
+Stock Bot consumes from "chat.commands" queue
+        ↓
+Fetches quote from Stooq API
+        ↓
+Publishes response to RabbitMQ: "chat.responses" exchange
+        ↓
+ResponseConsumer receives from "chat.responses" queue
+        ↓
+Broadcasts to WebSocket clients via Hub
+        ↓
+All users in chatroom see the stock quote
+```
+
+### Observability
+
+The application includes comprehensive observability features:
+
+- **Structured Logging**: JSON formatted logs with context (slog)
+- **Prometheus Metrics**:
+  - HTTP request duration and count (by method, path, status)
+  - WebSocket active connections (by chatroom)
+  - WebSocket messages sent (by chatroom)
+- **Request Tracing**: Request IDs propagated through context
+
+Access metrics at: `http://localhost:9090` (if Prometheus is configured)
+
 ## Testing
 
-```bash
-# Unit tests
-task test
+### Test Suite Overview
 
-# Integration tests with test containers
-task test-integration
+- **Unit Tests**: 630+ tests covering all packages (fast, no Docker)
+- **E2E Tests**: 63+ tests with real services (PostgreSQL, RabbitMQ, WebSocket)
+- **Messaging Tests**: 11 new E2E tests for RabbitMQ integration
+- **Coverage**: ~77% across the codebase
+
+### Running Tests
+
+```bash
+# Run all tests (unit + E2E)
+task tests
+
+# Run unit tests only (fast, ~2 minutes, no Docker required)
+task test:unit
+
+# Run E2E tests only (requires Docker, ~3 minutes)
+task test:e2e
 
 # Generate coverage report
 task coverage
 
-# Run linter
+# Run linters
 task lint
+
+# Format code
+task fmt
+```
+
+### Test Types Explained
+
+| Type | Speed | Docker | Command | Use Case |
+|------|-------|--------|---------|----------|
+| **Unit** | ~2min | ❌ | `task test:unit` | Fast feedback during development |
+| **E2E** | ~3min | ✅ | `task test:e2e` | Full integration testing |
+| **All** | ~5min | ✅ | `task tests` | CI/CD pipeline |
+
+### Test Organization
+
+```
+tests/e2e/
+├── setup_test.go              # E2E infrastructure (Docker, DB, RabbitMQ)
+├── auth_e2e_test.go           # Authentication tests
+├── chatroom_e2e_test.go       # Chatroom functionality tests
+├── websocket_e2e_test.go      # WebSocket communication tests
+├── repository_e2e_test.go     # Database repository tests
+├── messaging_e2e_test.go      # RabbitMQ integration tests (NEW)
+└── helpers_test.go            # Test utilities and helpers
+
+internal/*/
+└── *_test.go                  # Unit tests for each package
 ```
 
 ## Project Structure
@@ -185,34 +276,64 @@ task lint
 ```
 .
 ├── cmd/
-│   ├── chat-server/    # Chat server entry point
-│   └── stock-bot/      # Stock bot entry point
+│   ├── chat-server/              # Chat server entry point
+│   └── stock-bot/                # Stock bot entry point
 ├── internal/
-│   ├── config/         # Configuration
-│   ├── domain/         # Domain entities
-│   ├── service/        # Business logic
-│   ├── repository/     # Data access
-│   ├── handler/        # HTTP handlers
-│   ├── websocket/      # WebSocket hub and client
-│   └── middleware/     # HTTP middleware
-├── migrations/         # Database migrations
-├── static/             # Frontend assets
-├── containers/         # Docker configuration
-│   ├── docker-compose.yml
-│   ├── Dockerfile.chat-server
-│   └── Dockerfile.stock-bot
-├── artifacts/          # API specs and schemas
-└── docs/               # Documentation
+│   ├── config/                   # Configuration & database setup
+│   ├── domain/                   # Domain entities (User, Message, etc)
+│   ├── service/                  # Business logic (Auth, Chat)
+│   ├── repository/postgres/      # PostgreSQL data access layer
+│   ├── handler/                  # HTTP API handlers
+│   ├── websocket/                # WebSocket hub & client
+│   ├── middleware/               # HTTP middleware (Auth, CORS, Rate limit)
+│   ├── messaging/                # RabbitMQ integration & consumer
+│   ├── stock/                    # Stock quote service (Stooq API)
+│   ├── observability/            # Logging & metrics (slog, Prometheus)
+│   └── testutil/                 # Test utilities & mocks
+├── tests/
+│   └── e2e/                      # End-to-end integration tests
+│       ├── setup_test.go         # Docker infrastructure & services
+│       ├── auth_e2e_test.go      # Authentication flow tests
+│       ├── chatroom_e2e_test.go  # Chatroom operations tests
+│       ├── websocket_e2e_test.go # WebSocket communication tests
+│       ├── repository_e2e_test.go # Database integration tests
+│       ├── messaging_e2e_test.go # RabbitMQ integration tests
+│       └── helpers_test.go       # Test utilities & helpers
+├── migrations/                   # Database migrations (SQL)
+├── static/                       # Frontend assets (HTML, CSS, JS)
+├── containers/                   # Docker configuration
+│   ├── docker-compose.yml        # Multi-service orchestration
+│   ├── Dockerfile.chat-server    # Chat server image
+│   └── Dockerfile.stock-bot      # Stock bot image
+├── artifacts/                    # Generated files
+│   ├── openapi.yaml              # OpenAPI 3.0 specification
+│   └── schemas/                  # API schemas
+└── docs/                         # Documentation
 ```
+
+### Package Coverage Details
+
+| Package | Tests | Type | Coverage |
+|---------|-------|------|----------|
+| `observability` | 120 | Unit | 100% ⭐ |
+| `stock` | 95+ | Unit | 97.5% |
+| `service` | 120+ | Unit | 82.1% |
+| `repository/postgres` | 59 | Unit | 80.6% |
+| `config` | 35+ | Unit | 74.2% |
+| `handler` | 45+ | Unit | 73.7% |
+| `websocket` | 30+ | Unit | 71.3% |
+| `middleware` | 20+ | Unit | 70.4% |
+| `repository` | 24 | E2E | 100% |
+| `messaging` | 11 | E2E | 100% |
 
 ## Building
 
 ```bash
-# Build both services
+# Build both services (binary in ./bin/)
 task build
 
 # Build Docker images
-task docker-build
+task docker:build
 ```
 
 ## Deployment
@@ -220,8 +341,79 @@ task docker-build
 ### Docker Compose (Development)
 
 ```bash
-docker-compose -f containers/docker-compose.yml up -d
+# Start all services
+task docker:run
+
+# View logs
+task docker:logs
+
+# Stop services
+task docker:stop
+
+# Stop and remove volumes
+task docker:clean
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+**E2E Tests Timeout**
+```bash
+# Increase timeout if tests fail due to slow Docker startup
+go test -tags=e2e -timeout=300s ./tests/e2e
+```
+
+**RabbitMQ Connection Failed**
+```bash
+# Ensure RabbitMQ is running
+brew services start rabbitmq
+
+# Or check Docker container
+docker ps | grep rabbitmq
+```
+
+**Database Migration Issues**
+```bash
+# Check migration status
+task migrate:status
+
+# Rollback last migration if needed
+task migrate:down
+
+# Rerun migrations
+task docker:migrate:up
+```
+
+**WebSocket Connection Refused**
+```bash
+# Ensure chat server is running on port 8080
+lsof -i :8080
+
+# Or restart the service
+task run:server
+```
+
+### Getting Help
+
+- **API Documentation**: http://localhost:8081 (Swagger UI)
+- **RabbitMQ Management**: http://localhost:15672 (guest/guest)
+- **Logs**: Check terminal output or `task docker:logs`
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+
+- Run `task fmt` before committing to format code
+- Run `task lint` to check for linting issues
+- Run `task test:unit` to verify changes don't break tests
+- Write tests for new features (`internal/*/package_test.go`)
 
 ## License
 
