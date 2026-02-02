@@ -33,28 +33,28 @@ tasks:
       - mkdir -p bin
       - go run ./cmd/stock-bot -o ./bin/stock-bot
 
-  tests:
-    desc: Run all tests (unit + integration + e2e)
-    deps: [test:unit, test:integration, test:e2e]
+  test:
+    desc: Run all tests (unit + e2e)
+    deps: [test:unit, test:e2e]
 
   test:unit:
-    desc: Run unit tests with coverage
+    desc: Run unit tests (parallelized)
     silent: true
     cmds:
-      - echo "🧪 Running unit tests..."
+      - echo "🧪 Running unit tests (parallel)..."
       - mkdir -p coverage
-      - go test -race -coverprofile=coverage/unit.out ./internal/...
+      - go test -race -parallel 4 -coverprofile=coverage/unit.out ./internal/...
       - go tool cover -html=coverage/unit.out -o coverage/unit.html
       - echo "✅ Unit tests complete - coverage/unit.html generated"
 
   test:e2e:
-    desc: Run all E2E tests (requires Docker)
+    desc: Run all E2E tests with parallelization (requires Docker)
     silent: true    
     cmds:
       - echo "🐳 Running E2E tests..."
       - echo "⚠️  Ensure Docker daemon is running (docker info)"
       - echo "📦 First run will download PostgreSQL (~100MB) and RabbitMQ (~50MB)"
-      - go test -race -tags=e2e -timeout 10m ./tests/e2e/...
+      - go test -race -tags=e2e -parallel 4 -timeout 10m ./tests/e2e/...
       - echo "✅ E2E tests complete"
 
   coverage:
