@@ -1,4 +1,4 @@
-# Jobsity Chat
+# Chattorumu (just a chat)
 
 Real-time browser-based chat application with stock quote bot integration.
 
@@ -49,7 +49,7 @@ task docker:run
 
 # Wait for services to be ready (~30 seconds)
 # Chat: http://localhost:8080
-# Swagger UI: http://localhost:8081
+# Swagger UI: http://localhost:8081/swagger/
 # RabbitMQ Management: http://localhost:15672 (guest/guest)
 ```
 
@@ -138,8 +138,8 @@ The API is fully documented with OpenAPI 3.0 specification. You can explore and 
 # Start all services including Swagger UI
 docker-compose -f containers/docker-compose.yml up -d
 
-# Access Swagger UI
-open http://localhost:8081
+# Access Swagger UI (note the /swagger/ path)
+open http://localhost:8081/swagger/
 ```
 
 The Swagger UI will automatically load the OpenAPI specification from `artifacts/openapi.yaml` and provide:
@@ -155,11 +155,12 @@ If you only want to run Swagger UI:
 ```bash
 docker run -p 8081:8080 \
   -e SWAGGER_JSON=/api/openapi.yaml \
+  -e BASE_URL=/swagger \
   -v $(pwd)/artifacts:/api \
   swaggerapi/swagger-ui
 ```
 
-Then visit: http://localhost:8081
+Then visit: http://localhost:8081/swagger/
 
 #### OpenAPI Specification
 
@@ -172,7 +173,7 @@ The complete OpenAPI spec is available at `artifacts/openapi.yaml` and includes:
 
 **Services URLs:**
 - 🌐 Chat Application: http://localhost:8080
-- 📖 Swagger UI: http://localhost:8081
+- 📖 Swagger UI: http://localhost:8081/swagger/
 - 🐰 RabbitMQ Management: http://localhost:15672 (guest/guest)
 
 ## Stock Command
@@ -305,26 +306,10 @@ internal/*/
 │   ├── docker-compose.yml        # Multi-service orchestration
 │   ├── Dockerfile.chat-server    # Chat server image
 │   └── Dockerfile.stock-bot      # Stock bot image
-├── artifacts/                    # Generated files
-│   ├── openapi.yaml              # OpenAPI 3.0 specification
-│   └── schemas/                  # API schemas
-└── docs/                         # Documentation
+└── artifacts/                    # Generated files
+    ├── openapi.yaml              # OpenAPI 3.0 specification
+    └── schemas/                  # API schemas
 ```
-
-### Package Coverage Details
-
-| Package | Tests | Type | Coverage |
-|---------|-------|------|----------|
-| `observability` | 120 | Unit | 100% ⭐ |
-| `stock` | 95+ | Unit | 97.5% |
-| `service` | 120+ | Unit | 82.1% |
-| `repository/postgres` | 59 | Unit | 80.6% |
-| `config` | 35+ | Unit | 74.2% |
-| `handler` | 45+ | Unit | 73.7% |
-| `websocket` | 30+ | Unit | 71.3% |
-| `middleware` | 20+ | Unit | 70.4% |
-| `repository` | 24 | E2E | 100% |
-| `messaging` | 11 | E2E | 100% |
 
 ## Building
 
@@ -394,27 +379,16 @@ lsof -i :8080
 task run:server
 ```
 
-### Getting Help
+**Swagger UI Not Loading (404 Error)**
+```bash
+# Verify swagger-ui container is running
+docker ps | grep swagger-ui
 
-- **API Documentation**: http://localhost:8081 (Swagger UI)
-- **RabbitMQ Management**: http://localhost:15672 (guest/guest)
-- **Logs**: Check terminal output or `task docker:logs`
+# Check if openapi.yaml is mounted correctly
+docker exec jobsity-swagger-ui ls -la /api/
 
-## Contributing
+# View swagger-ui logs
+docker logs jobsity-swagger-ui
+```
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
-### Development Guidelines
-
-- Run `task fmt` before committing to format code
-- Run `task lint` to check for linting issues
-- Run `task test:unit` to verify changes don't break tests
-- Write tests for new features (`internal/*/package_test.go`)
-
-## License
-
-MIT

@@ -244,9 +244,14 @@ func (c *Client) ReadPump() {
 
 // broadcastMessageAsync broadcasts a message to all clients in a chatroom.
 // It runs asynchronously to avoid blocking the ReadPump.
+// Uses WaitGroup to ensure graceful shutdown waits for pending broadcasts.
 // If broadcast fails, it logs the error but does not notify the original sender
 // (the message is already persisted in the database and acknowledged).
 func (c *Client) broadcastMessageAsync(chatroomID string, data []byte, messageID string) {
+	// Track this goroutine for graceful shutdown
+	c.hub.pendingBroadcasts.Add(1)
+	defer c.hub.pendingBroadcasts.Done()
+
 	if err := c.hub.Broadcast(chatroomID, data); err != nil {
 		slog.Warn("broadcast failed, message persisted in database",
 			slog.String("error", err.Error()),
