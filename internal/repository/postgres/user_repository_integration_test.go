@@ -253,8 +253,10 @@ func TestSessionRepository_Integration(t *testing.T) {
 	pg, cleanup := setupPostgres(t)
 	defer cleanup()
 
-	userRepo := postgres.NewUserRepository(pg.db)
-	sessionRepo := postgres.NewSessionRepository(pg.db)
+	userRepo, err := postgres.NewUserRepository(pg.db)
+	require.NoError(t, err, "failed to create user repository")
+	sessionRepo, err := postgres.NewSessionRepository(pg.db)
+	require.NoError(t, err, "failed to create session repository")
 
 	// Create a user first
 	user := &domain.User{
@@ -262,7 +264,7 @@ func TestSessionRepository_Integration(t *testing.T) {
 		Email:        "session@example.com",
 		PasswordHash: "test_hash",
 	}
-	err := userRepo.Create(context.Background(), user)
+	err = userRepo.Create(context.Background(), user)
 	require.NoError(t, err)
 
 	t.Run("Create_and_GetByToken", func(t *testing.T) {
@@ -347,8 +349,10 @@ func TestChatroomRepository_Integration(t *testing.T) {
 	pg, cleanup := setupPostgres(t)
 	defer cleanup()
 
-	userRepo := postgres.NewUserRepository(pg.db)
-	chatroomRepo := postgres.NewChatroomRepository(pg.db)
+	userRepo, err := postgres.NewUserRepository(pg.db)
+	require.NoError(t, err, "failed to create user repository")
+	chatroomRepo, err := postgres.NewChatroomRepository(pg.db)
+	require.NoError(t, err, "failed to create chatroom repository")
 
 	// Create a user first
 	user := &domain.User{
@@ -356,7 +360,7 @@ func TestChatroomRepository_Integration(t *testing.T) {
 		Email:        "chatroom@example.com",
 		PasswordHash: "test_hash",
 	}
-	err := userRepo.Create(context.Background(), user)
+	err = userRepo.Create(context.Background(), user)
 	require.NoError(t, err)
 
 	t.Run("Create_and_GetByID", func(t *testing.T) {
@@ -444,9 +448,12 @@ func TestMessageRepository_Integration(t *testing.T) {
 	pg, cleanup := setupPostgres(t)
 	defer cleanup()
 
-	userRepo := postgres.NewUserRepository(pg.db)
-	chatroomRepo := postgres.NewChatroomRepository(pg.db)
-	messageRepo := postgres.NewMessageRepository(pg.db)
+	userRepo, err := postgres.NewUserRepository(pg.db)
+	require.NoError(t, err, "failed to create user repository")
+	chatroomRepo, err := postgres.NewChatroomRepository(pg.db)
+	require.NoError(t, err, "failed to create chatroom repository")
+	messageRepo, err := postgres.NewMessageRepository(pg.db)
+	require.NoError(t, err, "failed to create message repository")
 
 	// Create user and chatroom
 	user := &domain.User{
@@ -454,7 +461,7 @@ func TestMessageRepository_Integration(t *testing.T) {
 		Email:        "message@example.com",
 		PasswordHash: "test_hash",
 	}
-	err := userRepo.Create(context.Background(), user)
+	err = userRepo.Create(context.Background(), user)
 	require.NoError(t, err)
 
 	chatroom := &domain.Chatroom{
