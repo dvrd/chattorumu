@@ -3,7 +3,6 @@ package websocket
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -16,78 +15,6 @@ import (
 
 	"github.com/gorilla/websocket"
 )
-
-// mockWebSocketConn provides a mock implementation of websocket.Conn for testing
-//
-//nolint:unused // Used in tests
-type mockWebSocketConn struct {
-	readMessages  chan []byte
-	writeMessages chan []byte
-	closeErr      error
-	readErr       error
-	writeErr      error
-	closed        bool
-	mu            sync.Mutex
-}
-
-//nolint:unused // Test helper
-func newMockWebSocketConn() *mockWebSocketConn {
-	return &mockWebSocketConn{
-		readMessages:  make(chan []byte, 10),
-		writeMessages: make(chan []byte, 10),
-	}
-}
-
-//nolint:unused // Test helper
-func (m *mockWebSocketConn) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.closed = true
-	return m.closeErr
-}
-
-//nolint:unused // Test helper
-func (m *mockWebSocketConn) SetReadDeadline(t time.Time) error {
-	return nil
-}
-
-//nolint:unused // Test helper
-func (m *mockWebSocketConn) SetWriteDeadline(t time.Time) error {
-	return nil
-}
-
-//nolint:unused // Test helper
-func (m *mockWebSocketConn) SetReadLimit(limit int64) {
-}
-
-//nolint:unused // Test helper
-func (m *mockWebSocketConn) SetPongHandler(h func(string) error) {
-}
-
-//nolint:unused // Test helper
-func (m *mockWebSocketConn) ReadMessage() (int, []byte, error) {
-	if m.readErr != nil {
-		return 0, nil, m.readErr
-	}
-	msg, ok := <-m.readMessages
-	if !ok {
-		return 0, nil, &websocket.CloseError{Code: websocket.CloseGoingAway}
-	}
-	return websocket.TextMessage, msg, nil
-}
-
-//nolint:unused // Test helper
-func (m *mockWebSocketConn) WriteMessage(messageType int, data []byte) error {
-	if m.writeErr != nil {
-		return m.writeErr
-	}
-	select {
-	case m.writeMessages <- data:
-		return nil
-	default:
-		return errors.New("write buffer full")
-	}
-}
 
 func TestNewClient(t *testing.T) {
 	hub := NewHub()

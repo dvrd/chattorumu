@@ -9,21 +9,16 @@ linters:
   enable:
     - errcheck
     - govet
-    - golint
+    - revive
     - goimports
     - ineffassign
     - gosec
     - gocritic
     - misspell
-    - nakedret
     - stylecheck
     - unconvert
     - unparam
     - unused
-  disable:
-    - exhaustivestruct
-    - gomnd
-    - goconst
 
 linters-settings:
   errcheck:
@@ -35,8 +30,8 @@ linters-settings:
     disable:
       - fieldalignment
 
-  golint:
-    min-confidence: 0.8
+  revive:
+    severity: warning
 
   gosec:
     severity: medium
@@ -44,35 +39,16 @@ linters-settings:
   gocritic:
     enabled-checks:
       - boolExprSimplify
-      - captLocal
-      - codegenComment
       - commentedOutCode
-      - deprecatedComment
-      - dupBranchBody
-      - dupCase
-      - dupSubExpr
       - emptyFallthrough
       - emptyStringTest
       - equalFold
-      - exitAfterDefer
-      - flagDeref
-      - flagName
-      - ifElseChain
-      - mapKey
       - nilValReturn
-      - offBy1
       - paramTypeCombine
-      - sloppyLen
       - sloppyReassign
       - stringsCompare
-      - switchTrue
       - typeAssertChain
-      - typeSwitchVar
-      - underef
       - unnecessaryBlock
-      - unslice
-      - valSwap
-      - wrapperFunc
       - yodaStyleExpr
 
 issues:
@@ -84,7 +60,7 @@ issues:
         - unparam
     - path: cmd/.*
       linters:
-        - golint
+        - revive
 
   max-issues-per-linter: 0
   max-same-issues: 0

@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 // Helper function to drain user_count_update messages and return the first non-count message
@@ -423,28 +421,6 @@ func TestHub_DoubleUnregister(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// If we reach here without panic, test passes
-}
-
-// Mock WebSocket connection for testing
-//
-//nolint:unused // Test helper
-type mockConn struct {
-	websocket.Conn
-}
-
-//nolint:unused // Test helper
-func (m *mockConn) Close() error {
-	return nil
-}
-
-//nolint:unused // Test helper
-func (m *mockConn) WriteMessage(messageType int, data []byte) error {
-	return nil
-}
-
-//nolint:unused // Test helper
-func (m *mockConn) SetWriteDeadline(t time.Time) error {
-	return nil
 }
 
 // TestHub_GetConnectedUserCount tests the GetConnectedUserCount method
