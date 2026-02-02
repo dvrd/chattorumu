@@ -95,8 +95,10 @@ func setupTestEnvironment(ctx context.Context) (func(), error) {
 	cleanups = append(cleanups, rmqCleanup)
 	_ = rmqContainer
 
-	// Connect to RabbitMQ
-	rmq, err := messaging.NewRabbitMQ(rmqURL)
+	// Connect to RabbitMQ with timeout
+	rmqCtx, rmqCancel := context.WithTimeout(ctx, 30*time.Second)
+	rmq, err := messaging.NewRabbitMQWithRetry(rmqCtx, rmqURL)
+	rmqCancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
@@ -370,16 +372,23 @@ func setupChatServer(db *sql.DB, rmq *messaging.RabbitMQ) (func(), error) {
 	// Wait for server to be ready
 	time.Sleep(500 * time.Millisecond)
 
-	// Verify server is running
-	maxRetries := 10
+	// Verify server is running with improved error logging
+	maxRetries := 20
 	for i := 0; i < maxRetries; i++ {
 		resp, err := http.Get(baseURL + "/health")
 		if err == nil && resp.StatusCode == http.StatusOK {
 			resp.Body.Close()
+			log.Printf("server started successfully after %d retries", i)
 			break
 		}
+		if err != nil {
+			log.Printf("health check attempt %d failed: %v", i+1, err)
+		} else {
+			log.Printf("health check attempt %d failed with status %d", i+1, resp.StatusCode)
+			resp.Body.Close()
+		}
 		if i == maxRetries-1 {
-			return nil, fmt.Errorf("server did not start in time")
+			return nil, fmt.Errorf("server did not start in time after %d attempts", maxRetries)
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
