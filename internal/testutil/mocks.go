@@ -117,19 +117,23 @@ type MockSessionRepository struct {
 	mu sync.RWMutex
 
 	// Function overrides
-	CreateFunc        func(ctx context.Context, session *domain.Session) error
-	GetByTokenFunc    func(ctx context.Context, token string) (*domain.Session, error)
-	DeleteFunc        func(ctx context.Context, token string) error
-	DeleteExpiredFunc func(ctx context.Context) (int64, error)
+	CreateFunc          func(ctx context.Context, session *domain.Session) error
+	GetByTokenFunc      func(ctx context.Context, token string) (*domain.Session, error)
+	GetByCSRFTokenFunc  func(ctx context.Context, csrfToken string) (*domain.Session, error)
+	UpdateCSRFTokenFunc func(ctx context.Context, csrfToken, sessionToken string) error
+	DeleteFunc          func(ctx context.Context, token string) error
+	DeleteExpiredFunc   func(ctx context.Context) (int64, error)
 
 	// In-memory storage
-	Sessions map[string]*domain.Session
+	Sessions   map[string]*domain.Session
+	CSRFTokens map[string]string // csrfToken -> sessionToken mapping
 }
 
 // NewMockSessionRepository creates a new MockSessionRepository with initialized maps
 func NewMockSessionRepository() *MockSessionRepository {
 	return &MockSessionRepository{
-		Sessions: make(map[string]*domain.Session),
+		Sessions:   make(map[string]*domain.Session),
+		CSRFTokens: make(map[string]string),
 	}
 }
 
@@ -190,6 +194,45 @@ func (m *MockSessionRepository) DeleteExpired(ctx context.Context) (int64, error
 		}
 	}
 	return count, nil
+}
+
+func (m *MockSessionRepository) GetByCSRFToken(ctx context.Context, csrfToken string) (*domain.Session, error) {
+	if m.GetByCSRFTokenFunc != nil {
+		return m.GetByCSRFTokenFunc(ctx, csrfToken)
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	sessionToken, ok := m.CSRFTokens[csrfToken]
+	if !ok {
+		return nil, domain.ErrSessionNotFound
+	}
+
+	if session, ok := m.Sessions[sessionToken]; ok {
+		if session.ExpiresAt.Before(time.Now()) {
+			return nil, domain.ErrSessionExpired
+		}
+		return session, nil
+	}
+	return nil, domain.ErrSessionNotFound
+}
+
+func (m *MockSessionRepository) UpdateCSRFToken(ctx context.Context, csrfToken, sessionToken string) error {
+	if m.UpdateCSRFTokenFunc != nil {
+		return m.UpdateCSRFTokenFunc(ctx, csrfToken, sessionToken)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.CSRFTokens == nil {
+		m.CSRFTokens = make(map[string]string)
+	}
+
+	if session, ok := m.Sessions[sessionToken]; ok {
+		session.CSRFToken = csrfToken
+	}
+	m.CSRFTokens[csrfToken] = sessionToken
+	return nil
 }
 
 // MockChatroomRepository implements domain.ChatroomRepository for testing

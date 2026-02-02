@@ -10,11 +10,13 @@ import (
 )
 
 type SessionRepository struct {
-	db                *sql.DB
-	createStmt        *sql.Stmt
-	getByTokenStmt    *sql.Stmt
-	deleteStmt        *sql.Stmt
-	deleteExpiredStmt *sql.Stmt
+	db                  *sql.DB
+	createStmt          *sql.Stmt
+	getByTokenStmt      *sql.Stmt
+	getByCSRFTokenStmt  *sql.Stmt
+	deleteStmt          *sql.Stmt
+	deleteExpiredStmt   *sql.Stmt
+	updateCSRFTokenStmt *sql.Stmt
 }
 
 // NewSessionRepository creates a new SessionRepository with prepared statements.
@@ -33,7 +35,7 @@ func NewSessionRepository(db *sql.DB) (*SessionRepository, error) {
 	}
 
 	repo.getByTokenStmt, err = db.Prepare(`
-		SELECT id, user_id, token, expires_at, created_at
+		SELECT id, user_id, token, csrf_token, expires_at, created_at
 		FROM sessions
 		WHERE token = $1 AND expires_at > $2
 	`)
@@ -49,6 +51,22 @@ func NewSessionRepository(db *sql.DB) (*SessionRepository, error) {
 	repo.deleteExpiredStmt, err = db.Prepare(`DELETE FROM sessions WHERE expires_at <= $1`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare deleteExpired statement: %w", err)
+	}
+
+	repo.getByCSRFTokenStmt, err = db.Prepare(`
+		SELECT id, user_id, token, csrf_token, expires_at, created_at
+		FROM sessions
+		WHERE csrf_token = $1 AND expires_at > $2
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare getByCSRFToken statement: %w", err)
+	}
+
+	repo.updateCSRFTokenStmt, err = db.Prepare(`
+		UPDATE sessions SET csrf_token = $1 WHERE token = $2
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare updateCSRFToken statement: %w", err)
 	}
 
 	return repo, nil
@@ -73,6 +91,7 @@ func (r *SessionRepository) GetByToken(ctx context.Context, token string) (*doma
 		&session.ID,
 		&session.UserID,
 		&session.Token,
+		&session.CSRFToken,
 		&session.ExpiresAt,
 		&session.CreatedAt,
 	)
@@ -105,4 +124,35 @@ func (r *SessionRepository) DeleteExpired(ctx context.Context) (int64, error) {
 	}
 
 	return count, nil
+}
+
+// GetByCSRFToken retrieves a session by its CSRF token if it hasn't expired.
+// Returns ErrSessionNotFound if the token is invalid or session expired.
+func (r *SessionRepository) GetByCSRFToken(ctx context.Context, csrfToken string) (*domain.Session, error) {
+	session := &domain.Session{}
+	err := r.getByCSRFTokenStmt.QueryRowContext(ctx, csrfToken, time.Now()).Scan(
+		&session.ID,
+		&session.UserID,
+		&session.Token,
+		&session.CSRFToken,
+		&session.ExpiresAt,
+		&session.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, domain.ErrSessionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session by csrf token: %w", err)
+	}
+	return session, nil
+}
+
+// UpdateCSRFToken updates the CSRF token for a session.
+// Used to set the token after session creation.
+func (r *SessionRepository) UpdateCSRFToken(ctx context.Context, csrfToken, sessionToken string) error {
+	_, err := r.updateCSRFTokenStmt.ExecContext(ctx, csrfToken, sessionToken)
+	if err != nil {
+		return fmt.Errorf("failed to update csrf token: %w", err)
+	}
+	return nil
 }

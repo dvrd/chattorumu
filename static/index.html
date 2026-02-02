@@ -1103,6 +1103,18 @@
         const sendBtn = document.getElementById('send-btn');
         const commandIndicator = document.getElementById('command-indicator');
 
+        // Helper function to add CSRF token to fetch request options
+        function getCSRFHeaders() {
+            const csrfToken = sessionStorage.getItem('csrf_token');
+            if (!csrfToken) {
+                console.warn('CSRF token not found in session storage');
+                return {};
+            }
+            return {
+                'X-CSRF-Token': csrfToken
+            };
+        }
+
         // Initialize app
         async function init() {
             try {
@@ -1213,12 +1225,13 @@
                 sidebar.classList.add('mobile-hidden');
             }
 
-            // Join chatroom on backend (if not already a member)
-            try {
-                await fetch(`/api/v1/chatrooms/${roomId}/join`, {
-                    method: 'POST',
-                    credentials: 'include'
-                });
+             // Join chatroom on backend (if not already a member)
+             try {
+                 await fetch(`/api/v1/chatrooms/${roomId}/join`, {
+                     method: 'POST',
+                     headers: getCSRFHeaders(),
+                     credentials: 'include'
+                 });
             } catch (error) {
                 console.log('Join room request failed (might already be member):', error);
             }
@@ -1661,13 +1674,16 @@
 
         // Create chatroom
         async function createChatroom(name) {
-            try {
-                const response = await fetch('/api/v1/chatrooms', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ name })
-                });
+             try {
+                 const response = await fetch('/api/v1/chatrooms', {
+                     method: 'POST',
+                     headers: {
+                         'Content-Type': 'application/json',
+                         ...getCSRFHeaders()
+                     },
+                     credentials: 'include',
+                     body: JSON.stringify({ name })
+                 });
 
                 if (!response.ok) {
                     const data = await response.json();
@@ -1696,11 +1712,12 @@
             modalError.classList.remove('show');
         }
 
-        // Logout
-        async function logout() {
-            try {
-                await fetch('/api/v1/auth/logout', {
-                    method: 'POST',
+         // Logout
+         async function logout() {
+             try {
+                 await fetch('/api/v1/auth/logout', {
+                     method: 'POST',
+                     headers: getCSRFHeaders(),
                     credentials: 'include'
                 });
             } finally {

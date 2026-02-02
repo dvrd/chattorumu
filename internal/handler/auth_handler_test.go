@@ -13,6 +13,7 @@ import (
 
 	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/middleware"
+	"jobsity-chat/internal/security"
 	"jobsity-chat/internal/service"
 
 	"golang.org/x/crypto/bcrypt"
@@ -20,10 +21,10 @@ import (
 
 // mockUserRepository implements domain.UserRepository for testing
 type mockUserRepository struct {
-	createFunc   func(ctx context.Context, user *domain.User) error
-	getByIDFunc  func(ctx context.Context, id string) (*domain.User, error)
+	createFunc      func(ctx context.Context, user *domain.User) error
+	getByIDFunc     func(ctx context.Context, id string) (*domain.User, error)
 	getUsernameFunc func(ctx context.Context, username string) (*domain.User, error)
-	getEmailFunc func(ctx context.Context, email string) (*domain.User, error)
+	getEmailFunc    func(ctx context.Context, email string) (*domain.User, error)
 }
 
 func (m *mockUserRepository) Create(ctx context.Context, user *domain.User) error {
@@ -56,10 +57,12 @@ func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (*dom
 
 // mockSessionRepository implements domain.SessionRepository for testing
 type mockSessionRepository struct {
-	createFunc        func(ctx context.Context, session *domain.Session) error
-	getByTokenFunc    func(ctx context.Context, token string) (*domain.Session, error)
-	deleteFunc        func(ctx context.Context, token string) error
-	deleteExpiredFunc func(ctx context.Context) (int64, error)
+	createFunc          func(ctx context.Context, session *domain.Session) error
+	getByTokenFunc      func(ctx context.Context, token string) (*domain.Session, error)
+	getByCSRFTokenFunc  func(ctx context.Context, csrfToken string) (*domain.Session, error)
+	updateCSRFTokenFunc func(ctx context.Context, csrfToken, sessionToken string) error
+	deleteFunc          func(ctx context.Context, token string) error
+	deleteExpiredFunc   func(ctx context.Context) (int64, error)
 }
 
 func (m *mockSessionRepository) Create(ctx context.Context, session *domain.Session) error {
@@ -74,6 +77,20 @@ func (m *mockSessionRepository) GetByToken(ctx context.Context, token string) (*
 		return m.getByTokenFunc(ctx, token)
 	}
 	return nil, errors.New("not implemented")
+}
+
+func (m *mockSessionRepository) GetByCSRFToken(ctx context.Context, csrfToken string) (*domain.Session, error) {
+	if m.getByCSRFTokenFunc != nil {
+		return m.getByCSRFTokenFunc(ctx, csrfToken)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockSessionRepository) UpdateCSRFToken(ctx context.Context, csrfToken, sessionToken string) error {
+	if m.updateCSRFTokenFunc != nil {
+		return m.updateCSRFTokenFunc(ctx, csrfToken, sessionToken)
+	}
+	return nil
 }
 
 func (m *mockSessionRepository) Delete(ctx context.Context, token string) error {
@@ -101,7 +118,8 @@ func TestAuthHandler_Register_Success(t *testing.T) {
 	sessionRepo := &mockSessionRepository{}
 
 	authService := service.NewAuthService(userRepo, sessionRepo)
-	handler := NewAuthHandler(authService)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	reqBody := `{"username":"testuser","email":"test@example.com","password":"password123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", strings.NewReader(reqBody))
@@ -131,8 +149,10 @@ func TestAuthHandler_Register_Success(t *testing.T) {
 }
 
 func TestAuthHandler_Register_InvalidJSON(t *testing.T) {
-	authService := service.NewAuthService(&mockUserRepository{}, &mockSessionRepository{})
-	handler := NewAuthHandler(authService)
+	sessionRepo := &mockSessionRepository{}
+	authService := service.NewAuthService(&mockUserRepository{}, sessionRepo)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", strings.NewReader(`invalid json`))
 	req.Header.Set("Content-Type", "application/json")
@@ -230,7 +250,8 @@ func TestAuthHandler_Register_ValidationErrors(t *testing.T) {
 			userRepo := tt.userRepoSetup()
 			sessionRepo := &mockSessionRepository{}
 			authService := service.NewAuthService(userRepo, sessionRepo)
-			handler := NewAuthHandler(authService)
+			tokenMgr := security.NewTokenManager()
+			handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", strings.NewReader(tt.requestBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -300,7 +321,8 @@ func TestAuthHandler_Login_Success(t *testing.T) {
 			}
 
 			authService := service.NewAuthService(userRepo, sessionRepo)
-			handler := NewAuthHandler(authService)
+			tokenMgr := security.NewTokenManager()
+			handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 			reqBody := `{"username":"testuser","password":"password123"}`
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(reqBody))
@@ -356,8 +378,10 @@ func TestAuthHandler_Login_Success(t *testing.T) {
 }
 
 func TestAuthHandler_Login_InvalidJSON(t *testing.T) {
-	authService := service.NewAuthService(&mockUserRepository{}, &mockSessionRepository{})
-	handler := NewAuthHandler(authService)
+	sessionRepo := &mockSessionRepository{}
+	authService := service.NewAuthService(&mockUserRepository{}, sessionRepo)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`invalid json`))
 	req.Header.Set("Content-Type", "application/json")
@@ -379,7 +403,8 @@ func TestAuthHandler_Login_InvalidCredentials(t *testing.T) {
 
 	sessionRepo := &mockSessionRepository{}
 	authService := service.NewAuthService(userRepo, sessionRepo)
-	handler := NewAuthHandler(authService)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	reqBody := `{"username":"testuser","password":"wrongpassword"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(reqBody))
@@ -420,7 +445,8 @@ func TestAuthHandler_Login_InternalError(t *testing.T) {
 	}
 
 	authService := service.NewAuthService(userRepo, sessionRepo)
-	handler := NewAuthHandler(authService)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	reqBody := `{"username":"testuser","password":"password123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(reqBody))
@@ -451,7 +477,8 @@ func TestAuthHandler_Me_Success(t *testing.T) {
 
 	sessionRepo := &mockSessionRepository{}
 	authService := service.NewAuthService(userRepo, sessionRepo)
-	handler := NewAuthHandler(authService)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	// Add user ID to context (simulating auth middleware)
@@ -479,8 +506,10 @@ func TestAuthHandler_Me_Success(t *testing.T) {
 }
 
 func TestAuthHandler_Me_NoUserIDInContext(t *testing.T) {
-	authService := service.NewAuthService(&mockUserRepository{}, &mockSessionRepository{})
-	handler := NewAuthHandler(authService)
+	sessionRepo := &mockSessionRepository{}
+	authService := service.NewAuthService(&mockUserRepository{}, sessionRepo)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	w := httptest.NewRecorder()
@@ -505,7 +534,8 @@ func TestAuthHandler_Me_UserNotFound(t *testing.T) {
 
 	sessionRepo := &mockSessionRepository{}
 	authService := service.NewAuthService(userRepo, sessionRepo)
-	handler := NewAuthHandler(authService)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	ctx := middleware.WithUserID(req.Context(), "nonexistent-user")
@@ -535,7 +565,8 @@ func TestAuthHandler_Logout_Success(t *testing.T) {
 	}
 
 	authService := service.NewAuthService(&mockUserRepository{}, sessionRepo)
-	handler := NewAuthHandler(authService)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
 	// Add session to context (simulating auth middleware)
@@ -583,8 +614,10 @@ func TestAuthHandler_Logout_Success(t *testing.T) {
 }
 
 func TestAuthHandler_Logout_NoSessionInContext(t *testing.T) {
-	authService := service.NewAuthService(&mockUserRepository{}, &mockSessionRepository{})
-	handler := NewAuthHandler(authService)
+	sessionRepo := &mockSessionRepository{}
+	authService := service.NewAuthService(&mockUserRepository{}, sessionRepo)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
 	w := httptest.NewRecorder()
@@ -604,7 +637,8 @@ func TestAuthHandler_Logout_ServiceError(t *testing.T) {
 	}
 
 	authService := service.NewAuthService(&mockUserRepository{}, sessionRepo)
-	handler := NewAuthHandler(authService)
+	tokenMgr := security.NewTokenManager()
+	handler := NewAuthHandler(authService, sessionRepo, tokenMgr)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
 	ctx := middleware.WithSession(req.Context(), &domain.Session{

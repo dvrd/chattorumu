@@ -17,6 +17,7 @@ import (
 	"jobsity-chat/internal/middleware"
 	"jobsity-chat/internal/observability"
 	"jobsity-chat/internal/repository/postgres"
+	"jobsity-chat/internal/security"
 	"jobsity-chat/internal/service"
 	"jobsity-chat/internal/websocket"
 
@@ -119,7 +120,10 @@ func main() {
 	go startSessionCleanup(ctx, sessionRepo)
 	slog.Info("session cleanup task started")
 
-	authHandler := handler.NewAuthHandler(authService)
+	// Initialize CSRF token manager
+	csrfTokenMgr := security.NewTokenManager()
+
+	authHandler := handler.NewAuthHandler(authService, sessionRepo, csrfTokenMgr)
 	chatroomHandler := handler.NewChatroomHandler(chatService, hub)
 	wsHandler := handler.NewWebSocketHandler(hub, chatService, authService, rmq, sessionRepo, cfg.AllowedOrigins)
 
@@ -174,6 +178,7 @@ func main() {
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(sessionRepo))
+			r.Use(middleware.CSRF(sessionRepo))
 			r.Use(apiLimiter.Middleware())
 
 			r.Get("/auth/me", authHandler.Me)

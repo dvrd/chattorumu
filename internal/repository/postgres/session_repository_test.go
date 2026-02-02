@@ -130,13 +130,13 @@ func TestSessionRepository_GetByToken(t *testing.T) {
 		expiresAt := time.Now().Add(24 * time.Hour)
 
 		mock.ExpectQuery(regexp.QuoteMeta(`
-		SELECT id, user_id, token, expires_at, created_at
+		SELECT id, user_id, token, csrf_token, expires_at, created_at
 		FROM sessions
 		WHERE token = $1 AND expires_at > $2
 	`)).
 			WithArgs("token123", sqlmock.AnyArg()).
-			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "token", "expires_at", "created_at"}).
-				AddRow(sessionID, userID, "token123", expiresAt, createdAt))
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "token", "csrf_token", "expires_at", "created_at"}).
+				AddRow(sessionID, userID, "token123", "csrf-abc123", expiresAt, createdAt))
 
 		session, err := repo.GetByToken(context.Background(), "token123")
 		require.NoError(t, err)
@@ -157,7 +157,7 @@ func TestSessionRepository_GetByToken(t *testing.T) {
 		require.NoError(t, err)
 
 		mock.ExpectQuery(regexp.QuoteMeta(`
-		SELECT id, user_id, token, expires_at, created_at
+		SELECT id, user_id, token, csrf_token, expires_at, created_at
 		FROM sessions
 		WHERE token = $1 AND expires_at > $2
 	`)).
@@ -182,7 +182,7 @@ func TestSessionRepository_GetByToken(t *testing.T) {
 
 		// Expired sessions should not be returned
 		mock.ExpectQuery(regexp.QuoteMeta(`
-		SELECT id, user_id, token, expires_at, created_at
+		SELECT id, user_id, token, csrf_token, expires_at, created_at
 		FROM sessions
 		WHERE token = $1 AND expires_at > $2
 	`)).
@@ -206,7 +206,7 @@ func TestSessionRepository_GetByToken(t *testing.T) {
 		require.NoError(t, err)
 
 		mock.ExpectQuery(regexp.QuoteMeta(`
-		SELECT id, user_id, token, expires_at, created_at
+		SELECT id, user_id, token, csrf_token, expires_at, created_at
 		FROM sessions
 		WHERE token = $1 AND expires_at > $2
 	`)).
@@ -364,20 +364,37 @@ func TestSessionRepository_DeleteExpired(t *testing.T) {
 }
 
 // Helper function to set up common mock expectations
+// Note: Order matters! Must match the order in NewSessionRepository
 func setupSessionRepositoryMocks(mock sqlmock.Sqlmock) {
+	// 1. CREATE statement
 	mock.ExpectPrepare(regexp.QuoteMeta(`
 		INSERT INTO sessions (user_id, token, expires_at)
 		VALUES ($1, $2, $3)
 		RETURNING id, created_at
 	`)).WillReturnCloseError(nil)
 
+	// 2. GET BY TOKEN statement
 	mock.ExpectPrepare(regexp.QuoteMeta(`
-		SELECT id, user_id, token, expires_at, created_at
+		SELECT id, user_id, token, csrf_token, expires_at, created_at
 		FROM sessions
 		WHERE token = $1 AND expires_at > $2
 	`)).WillReturnCloseError(nil)
 
+	// 3. DELETE statement
 	mock.ExpectPrepare(regexp.QuoteMeta(`DELETE FROM sessions WHERE token = $1`)).WillReturnCloseError(nil)
 
+	// 4. DELETE EXPIRED statement
 	mock.ExpectPrepare(regexp.QuoteMeta(`DELETE FROM sessions WHERE expires_at <= $1`)).WillReturnCloseError(nil)
+
+	// 5. GET BY CSRF TOKEN statement
+	mock.ExpectPrepare(regexp.QuoteMeta(`
+		SELECT id, user_id, token, csrf_token, expires_at, created_at
+		FROM sessions
+		WHERE csrf_token = $1 AND expires_at > $2
+	`)).WillReturnCloseError(nil)
+
+	// 6. UPDATE CSRF TOKEN statement
+	mock.ExpectPrepare(regexp.QuoteMeta(`
+		UPDATE sessions SET csrf_token = $1 WHERE token = $2
+	`)).WillReturnCloseError(nil)
 }

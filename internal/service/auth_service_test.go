@@ -11,11 +11,11 @@ import (
 
 // Mock repositories for testing
 type mockUserRepository struct {
-	users          map[string]*domain.User
+	users         map[string]*domain.User
 	getByUsername func(ctx context.Context, username string) (*domain.User, error)
 	getByEmail    func(ctx context.Context, email string) (*domain.User, error)
 	getByID       func(ctx context.Context, id string) (*domain.User, error)
-	create         func(ctx context.Context, user *domain.User) error
+	create        func(ctx context.Context, user *domain.User) error
 }
 
 func (m *mockUserRepository) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
@@ -71,10 +71,14 @@ func (m *mockUserRepository) Create(ctx context.Context, user *domain.User) erro
 }
 
 type mockSessionRepository struct {
-	sessions map[string]*domain.Session
-	create   func(ctx context.Context, session *domain.Session) error
-	getByToken func(ctx context.Context, token string) (*domain.Session, error)
-	delete   func(ctx context.Context, token string) error
+	sessions        map[string]*domain.Session
+	create          func(ctx context.Context, session *domain.Session) error
+	getByToken      func(ctx context.Context, token string) (*domain.Session, error)
+	getByCSRFToken  func(ctx context.Context, csrfToken string) (*domain.Session, error)
+	updateCSRFToken func(ctx context.Context, csrfToken, sessionToken string) error
+	delete          func(ctx context.Context, token string) error
+	deleteByUserID  func(ctx context.Context, userID string) error
+	deleteExpired   func(ctx context.Context) (int64, error)
 }
 
 func (m *mockSessionRepository) Create(ctx context.Context, session *domain.Session) error {
@@ -99,6 +103,20 @@ func (m *mockSessionRepository) GetByToken(ctx context.Context, token string) (*
 	return session, nil
 }
 
+func (m *mockSessionRepository) GetByCSRFToken(ctx context.Context, csrfToken string) (*domain.Session, error) {
+	if m.getByCSRFToken != nil {
+		return m.getByCSRFToken(ctx, csrfToken)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockSessionRepository) UpdateCSRFToken(ctx context.Context, csrfToken, sessionToken string) error {
+	if m.updateCSRFToken != nil {
+		return m.updateCSRFToken(ctx, csrfToken, sessionToken)
+	}
+	return nil
+}
+
 func (m *mockSessionRepository) Delete(ctx context.Context, token string) error {
 	if m.delete != nil {
 		return m.delete(ctx, token)
@@ -108,10 +126,16 @@ func (m *mockSessionRepository) Delete(ctx context.Context, token string) error 
 }
 
 func (m *mockSessionRepository) DeleteByUserID(ctx context.Context, userID string) error {
+	if m.deleteByUserID != nil {
+		return m.deleteByUserID(ctx, userID)
+	}
 	return nil
 }
 
 func (m *mockSessionRepository) DeleteExpired(ctx context.Context) (int64, error) {
+	if m.deleteExpired != nil {
+		return m.deleteExpired(ctx)
+	}
 	return 0, nil
 }
 

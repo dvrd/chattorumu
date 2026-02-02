@@ -391,17 +391,22 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Store session token in sessionStorage for WebSocket auth
-                    if (data.session && data.session.token) {
-                        sessionStorage.setItem('ws_token', data.session.token);
-                    }
-                    // Redirect to main app
-                    window.location.href = '/';
-                } else {
-                    showError(data.error || 'Invalid credentials');
-                    submitBtn.disabled = false;
-                    buttonText.textContent = 'Sign in';
-                }
+                     // Store session token in sessionStorage for WebSocket auth
+                     if (data.session_token) {
+                         sessionStorage.setItem('ws_token', data.session_token);
+                     }
+                     // Store CSRF token in sessionStorage (cleared when tab closes)
+                     // sessionStorage is safer than localStorage as it's cleared on tab close
+                     if (data.csrf_token) {
+                         sessionStorage.setItem('csrf_token', data.csrf_token);
+                     }
+                     // Redirect to main app
+                     window.location.href = '/';
+                 } else {
+                     showError(data.error || 'Invalid credentials');
+                     submitBtn.disabled = false;
+                     buttonText.textContent = 'Sign in';
+                 }
             } catch (error) {
                 showError('Network error. Please try again.');
                 submitBtn.disabled = false;

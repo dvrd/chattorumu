@@ -9,20 +9,25 @@ import (
 
 	"jobsity-chat/internal/domain"
 	"jobsity-chat/internal/middleware"
+	"jobsity-chat/internal/security"
 	"jobsity-chat/internal/service"
 )
 
 type AuthHandler struct {
 	authService  *service.AuthService
+	sessionRepo  domain.SessionRepository
+	tokenMgr     *security.TokenManager
 	isProduction bool
 }
 
-func NewAuthHandler(authService *service.AuthService) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, sessionRepo domain.SessionRepository, tokenMgr *security.TokenManager) *AuthHandler {
 	env := os.Getenv("ENVIRONMENT")
 	isProduction := env == "production" || env == "prod"
 
 	return &AuthHandler{
 		authService:  authService,
+		sessionRepo:  sessionRepo,
+		tokenMgr:     tokenMgr,
 		isProduction: isProduction,
 	}
 }
@@ -48,6 +53,7 @@ type LoginResponse struct {
 	Success      bool             `json:"success"`
 	User         RegisterResponse `json:"user"`
 	SessionToken string           `json:"session_token"` // Token for WebSocket authentication
+	CSRFToken    string           `json:"csrf_token"`    // Token for CSRF protection
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -123,6 +129,23 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate CSRF token for the session
+	csrfToken, err := h.tokenMgr.Generate()
+	if err != nil {
+		slog.Error("failed to generate CSRF token", slog.String("error", err.Error()))
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"Internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Store CSRF token in session
+	if err := h.sessionRepo.UpdateCSRFToken(r.Context(), csrfToken, session.Token); err != nil {
+		slog.Error("failed to store CSRF token", slog.String("error", err.Error()))
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"Internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
 		Value:    session.Token,
@@ -141,6 +164,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			Email:    user.Email,
 		},
 		SessionToken: session.Token,
+		CSRFToken:    csrfToken,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
