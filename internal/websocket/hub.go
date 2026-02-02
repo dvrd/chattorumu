@@ -119,7 +119,7 @@ func (h *Hub) Run(ctx context.Context) error {
 					h.mutex.Lock()
 					for _, client := range clientsToRemove {
 						client.closeSendOnce()
-						delete(h.clients[message.ChatroomID], client)
+						delete(h.clients[client.chatroomID], client)
 					}
 					h.mutex.Unlock()
 				}
