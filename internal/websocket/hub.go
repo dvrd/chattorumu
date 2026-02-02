@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -29,7 +30,8 @@ type Hub struct {
 	clients map[string]map[*Client]bool
 
 	// broadcast channel for sending messages to all clients in a chatroom.
-	// Buffer of 256 allows burst handling without blocking senders.
+	// Buffer of 1024 allows burst handling without blocking senders.
+	// See: https://go.dev/wiki/CodeReviewComments#channel-size
 	broadcast chan *BroadcastMessage
 
 	// register channel for new client connections.
@@ -50,7 +52,7 @@ type Hub struct {
 func NewHub() *Hub {
 	return &Hub{
 		clients:         make(map[string]map[*Client]bool),
-		broadcast:       make(chan *BroadcastMessage, 256),
+		broadcast:       make(chan *BroadcastMessage, 1024),
 		register:        make(chan *Client),
 		unregister:      make(chan *Client),
 		userCountUpdate: make(chan struct{}, 10),
@@ -171,10 +173,20 @@ func (h *Hub) shutdown() {
 	slog.Info("hub shutdown complete")
 }
 
-func (h *Hub) Broadcast(chatroomID string, message []byte) {
-	h.broadcast <- &BroadcastMessage{
+// Broadcast sends a message to all clients in a chatroom.
+// It uses a non-blocking send to avoid blocking the caller if the broadcast queue is full.
+// If the queue is full, the message is dropped and an error is returned.
+// Callers should log the error and notify the client if necessary.
+func (h *Hub) Broadcast(chatroomID string, message []byte) error {
+	select {
+	case h.broadcast <- &BroadcastMessage{
 		ChatroomID: chatroomID,
 		Message:    message,
+	}:
+		return nil
+	default:
+		// Queue is full, cannot broadcast without blocking
+		return fmt.Errorf("broadcast queue full for chatroom %q", chatroomID)
 	}
 }
 

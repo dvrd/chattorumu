@@ -161,7 +161,9 @@ func TestHub_RegisterClient(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify by attempting to broadcast - if client is registered, it should receive
-	hub.Broadcast("test-room", []byte("test"))
+	if err := hub.Broadcast("test-room", []byte("test")); err != nil {
+		t.Fatalf("Broadcast failed: %v", err)
+	}
 
 	// Use helper to skip user_count_update messages
 	msg, err := drainCountUpdates(mockClient.send, 200*time.Millisecond)
@@ -206,7 +208,9 @@ func TestHub_UnregisterClient(t *testing.T) {
 	drainCountUpdates(mockClient.send, 100*time.Millisecond)
 
 	// Attempt broadcast - client should not receive since unregistered
-	hub.Broadcast("test-room", []byte("test after unregister"))
+	if err := hub.Broadcast("test-room", []byte("test after unregister")); err != nil {
+		t.Fatalf("Broadcast failed: %v", err)
+	}
 
 	// Give time for broadcast to process (it should have no effect)
 	time.Sleep(50 * time.Millisecond)
@@ -260,7 +264,9 @@ func TestHub_BroadcastMessage(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Broadcast message
-	hub.Broadcast("test-room", []byte("test message"))
+	if err := hub.Broadcast("test-room", []byte("test message")); err != nil {
+		t.Fatalf("Broadcast failed: %v", err)
+	}
 
 	// Both clients should receive (hub broadcasts to all in room) - after count updates
 	msg1, err := drainCountUpdates(client1.send, 200*time.Millisecond)
@@ -313,7 +319,9 @@ func TestHub_BroadcastToMultipleChatrooms(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Broadcast to room-1 only
-	hub.Broadcast("room-1", []byte("message for room 1"))
+	if err := hub.Broadcast("room-1", []byte("message for room 1")); err != nil {
+		t.Fatalf("Broadcast failed: %v", err)
+	}
 
 	// Client1 should receive (after draining count updates)
 	msg1, err := drainCountUpdates(client1.send, 200*time.Millisecond)
