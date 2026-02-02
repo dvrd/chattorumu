@@ -93,7 +93,8 @@ func (c *Client) ReadPump() {
 				slog.String("error", err.Error()),
 				slog.String("username", c.username))
 		} else {
-			c.hub.Broadcast(c.chatroomID, data)
+			// Non-critical broadcast, so we ignore errors
+			_ = c.hub.Broadcast(c.chatroomID, data)
 		}
 	}()
 
@@ -126,7 +127,8 @@ func (c *Client) ReadPump() {
 			slog.String("error", err.Error()),
 			slog.String("username", c.username))
 	} else {
-		c.hub.Broadcast(c.chatroomID, data)
+		// Non-critical broadcast, so we ignore errors
+		_ = c.hub.Broadcast(c.chatroomID, data)
 	}
 
 	for {
@@ -226,8 +228,32 @@ func (c *Client) ReadPump() {
 				slog.String("error", err.Error()),
 				slog.String("message_id", msg.ID))
 		} else {
-			c.hub.Broadcast(c.chatroomID, data)
+			// Send ACK immediately to client (optimistic)
+			ackMsg := ServerMessage{
+				Type: "message_ack",
+				ID:   msg.ID,
+			}
+			ackData, _ := json.Marshal(ackMsg)
+			c.send <- ackData
+
+			// Broadcast in background to avoid blocking ReadPump
+			go c.broadcastMessageAsync(c.chatroomID, data, msg.ID)
 		}
+	}
+}
+
+// broadcastMessageAsync broadcasts a message to all clients in a chatroom.
+// It runs asynchronously to avoid blocking the ReadPump.
+// If broadcast fails, it logs the error but does not notify the original sender
+// (the message is already persisted in the database and acknowledged).
+func (c *Client) broadcastMessageAsync(chatroomID string, data []byte, messageID string) {
+	if err := c.hub.Broadcast(chatroomID, data); err != nil {
+		slog.Warn("broadcast failed, message persisted in database",
+			slog.String("error", err.Error()),
+			slog.String("message_id", messageID),
+			slog.String("chatroom_id", chatroomID),
+			slog.String("user", c.username))
+		// Note: message is still in database, just not broadcast to real-time clients
 	}
 }
 

@@ -125,10 +125,16 @@ func (c *ResponseConsumer) processResponse(_ context.Context, response *StockRes
 	}
 
 	if data, err := json.Marshal(serverMsg); err == nil {
-		c.hub.Broadcast(response.ChatroomID, data)
-		slog.Info("broadcast bot message to websocket",
-			slog.String("chatroom_id", response.ChatroomID),
-			slog.String("content", content))
+		if err := c.hub.Broadcast(response.ChatroomID, data); err != nil {
+			slog.Warn("failed to broadcast bot message",
+				slog.String("error", err.Error()),
+				slog.String("chatroom_id", response.ChatroomID),
+				slog.String("symbol", response.Symbol))
+		} else {
+			slog.Info("broadcast bot message to websocket",
+				slog.String("chatroom_id", response.ChatroomID),
+				slog.String("content", content))
+		}
 	} else {
 		slog.Error("error marshaling server message",
 			slog.String("error", err.Error()))
