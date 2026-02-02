@@ -7,11 +7,11 @@ import (
 )
 
 var (
-	ErrUserNotFound      = errors.New("user not found")
-	ErrUsernameExists    = errors.New("username already exists")
-	ErrEmailExists       = errors.New("email already exists")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrUsernameExists     = errors.New("username already exists")
+	ErrEmailExists        = errors.New("email already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrInvalidInput      = errors.New("invalid input")
+	ErrInvalidInput       = errors.New("invalid input")
 )
 
 // User represents a user in the system

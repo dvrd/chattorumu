@@ -195,7 +195,7 @@ func TestCORS_RegularRequestPassesThrough(t *testing.T) {
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nextHandlerCalled = true
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("response body"))
+		_, _ = w.Write([]byte("response body"))
 	})
 
 	handler := middleware(nextHandler)

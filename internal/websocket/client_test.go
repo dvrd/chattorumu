@@ -18,6 +18,8 @@ import (
 )
 
 // mockWebSocketConn provides a mock implementation of websocket.Conn for testing
+//
+//nolint:unused // Used in tests
 type mockWebSocketConn struct {
 	readMessages  chan []byte
 	writeMessages chan []byte
@@ -28,6 +30,7 @@ type mockWebSocketConn struct {
 	mu            sync.Mutex
 }
 
+//nolint:unused // Test helper
 func newMockWebSocketConn() *mockWebSocketConn {
 	return &mockWebSocketConn{
 		readMessages:  make(chan []byte, 10),
@@ -35,6 +38,7 @@ func newMockWebSocketConn() *mockWebSocketConn {
 	}
 }
 
+//nolint:unused // Test helper
 func (m *mockWebSocketConn) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -42,20 +46,25 @@ func (m *mockWebSocketConn) Close() error {
 	return m.closeErr
 }
 
+//nolint:unused // Test helper
 func (m *mockWebSocketConn) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
+//nolint:unused // Test helper
 func (m *mockWebSocketConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
+//nolint:unused // Test helper
 func (m *mockWebSocketConn) SetReadLimit(limit int64) {
 }
 
+//nolint:unused // Test helper
 func (m *mockWebSocketConn) SetPongHandler(h func(string) error) {
 }
 
+//nolint:unused // Test helper
 func (m *mockWebSocketConn) ReadMessage() (int, []byte, error) {
 	if m.readErr != nil {
 		return 0, nil, m.readErr
@@ -67,6 +76,7 @@ func (m *mockWebSocketConn) ReadMessage() (int, []byte, error) {
 	return websocket.TextMessage, msg, nil
 }
 
+//nolint:unused // Test helper
 func (m *mockWebSocketConn) WriteMessage(messageType int, data []byte) error {
 	if m.writeErr != nil {
 		return m.writeErr
@@ -252,8 +262,10 @@ func TestServerMessage_JSON(t *testing.T) {
 				// Type assertion for comparison
 				switch v := expected.(type) {
 				case string:
+					//nolint:errcheck
 					testutil.AssertEqual(t, got.(string), v)
 				case bool:
+					//nolint:errcheck
 					testutil.AssertEqual(t, got.(bool), v)
 				}
 			}
@@ -505,7 +517,7 @@ func TestClient_StockCommand_Published(t *testing.T) {
 		// Send a stock command to the client
 		stockCmd := ClientMessage{Type: "chat_message", Content: "/stock=AAPL.US"}
 		data, _ := json.Marshal(stockCmd)
-		conn.WriteMessage(websocket.TextMessage, data)
+		_ = conn.WriteMessage(websocket.TextMessage, data)
 
 		// Read any responses
 		for {
@@ -527,7 +539,7 @@ func TestClient_StockCommand_Published(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go hub.Run(ctx)
+	go func() { _ = hub.Run(ctx) }()
 	time.Sleep(50 * time.Millisecond)
 
 	client := NewClient(ctx, hub, conn, "user-123", "testuser", "room-1", chatService, publisher)
@@ -596,7 +608,7 @@ func BenchmarkNewClient(b *testing.B) {
 			time.Sleep(time.Hour)
 		}),
 	}
-	go server.Serve(ln)
+	go func() { _ = server.Serve(ln) }()
 
 	hub := NewHub()
 	publisher := testutil.NewMockMessagePublisher()

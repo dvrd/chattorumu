@@ -86,8 +86,8 @@ func OpenAPIValidator(config *OpenAPIValidatorConfig) func(next http.Handler) ht
 	}
 
 	// Validate the OpenAPI document itself
-	if err := doc.Validate(loader.Context); err != nil {
-		slog.Error("OpenAPI spec validation failed", slog.String("error", err.Error()))
+	if validErr := doc.Validate(loader.Context); validErr != nil {
+		slog.Error("OpenAPI spec validation failed", slog.String("error", validErr.Error()))
 		return func(next http.Handler) http.Handler {
 			return next
 		}
@@ -219,7 +219,7 @@ func shouldSkipPath(path string, skipPaths []string) bool {
 func writeValidationError(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
 	})
 }

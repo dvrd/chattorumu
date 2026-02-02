@@ -111,7 +111,7 @@ func (r *MessageRepository) GetByChatroom(ctx context.Context, chatroomID string
 	return messages, nil
 }
 
-func (r *MessageRepository) GetByChatroomBefore(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error) {
+func (r *MessageRepository) GetByChatroomBefore(ctx context.Context, chatroomID, before string, limit int) ([]*domain.Message, error) {
 	rows, err := r.getByChatroomBeforeStmt.QueryContext(ctx, chatroomID, before, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query messages before timestamp: %w", err)

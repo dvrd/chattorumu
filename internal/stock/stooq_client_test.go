@@ -3,7 +3,6 @@ package stock
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,7 +22,7 @@ func TestGetQuote_Success(t *testing.T) {
 		// Return valid CSV
 		csv := "Symbol,Date,Time,Open,High,Low,Close,Volume\nAAPL.US,2026-01-28,22:00:00,150.0,152.0,149.0,151.5,1000000"
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(csv))
+		_, _ = w.Write([]byte(csv))
 	}))
 	defer server.Close()
 
@@ -62,7 +61,7 @@ func TestGetQuote_StockNotFound(t *testing.T) {
 		// Return CSV with N/D for not available
 		csv := "Symbol,Date,Time,Open,High,Low,Close,Volume\nN/D,N/D,N/D,N/D,N/D,N/D,N/D,N/D"
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(csv))
+		_, _ = w.Write([]byte(csv))
 	}))
 	defer server.Close()
 
@@ -140,7 +139,7 @@ func TestGetQuote_ContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		csv := "Symbol,Date,Time,Open,High,Low,Close,Volume\nAAPL.US,2026-01-28,22:00:00,150.0,152.0,149.0,151.5,1000000"
-		w.Write([]byte(csv))
+		_, _ = w.Write([]byte(csv))
 	}))
 	defer server.Close()
 
@@ -171,7 +170,7 @@ func TestGetQuote_RetryLogic(t *testing.T) {
 		// Succeed on 3rd attempt
 		csv := "Symbol,Date,Time,Open,High,Low,Close,Volume\nAAPL.US,2026-01-28,22:00:00,150.0,152.0,149.0,151.5,1000000"
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(csv))
+		_, _ = w.Write([]byte(csv))
 	}))
 	defer server.Close()
 
@@ -417,7 +416,7 @@ func TestGetQuote_URLConstruction(t *testing.T) {
 		}
 
 		csv := "Symbol,Date,Time,Open,High,Low,Close,Volume\nAAPL.US,2026-01-28,22:00:00,150.0,152.0,149.0,151.5,1000000"
-		w.Write([]byte(csv))
+		_, _ = w.Write([]byte(csv))
 	}))
 	defer server.Close()
 
@@ -464,7 +463,7 @@ func TestParseCSV_MalformedCSV(t *testing.T) {
 func BenchmarkGetQuote(b *testing.B) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		csv := "Symbol,Date,Time,Open,High,Low,Close,Volume\nAAPL.US,2026-01-28,22:00:00,150.0,152.0,149.0,151.5,1000000"
-		w.Write([]byte(csv))
+		_, _ = w.Write([]byte(csv))
 	}))
 	defer server.Close()
 
@@ -473,7 +472,7 @@ func BenchmarkGetQuote(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		client.GetQuote(ctx, "AAPL.US")
+		_, _ = client.GetQuote(ctx, "AAPL.US")
 	}
 }
 
@@ -484,13 +483,6 @@ func BenchmarkParseCSV(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		reader := strings.NewReader(csv)
-		client.parseCSV(reader)
+		_, _ = client.parseCSV(reader)
 	}
-}
-
-// Test helper to create mock CSV reader
-func createMockCSV(symbol, date, time, close string) io.Reader {
-	csv := "Symbol,Date,Time,Open,High,Low,Close,Volume\n" +
-		symbol + "," + date + "," + time + ",150.0,152.0,149.0," + close + ",1000000"
-	return strings.NewReader(csv)
 }

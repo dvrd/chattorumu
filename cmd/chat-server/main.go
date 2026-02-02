@@ -47,12 +47,13 @@ func main() {
 	db, err := config.NewPostgresConnection(cfg.DatabaseURL)
 	if err != nil {
 		slog.Error("failed to connect to database", slog.String("error", err.Error()))
+		//nolint:gocritic // Intentional exit before defer
 		os.Exit(1)
 	}
 	defer db.Close()
 
-	if err := db.PingContext(connCtx); err != nil {
-		slog.Error("database ping failed", slog.String("error", err.Error()))
+	if pingErr := db.PingContext(connCtx); pingErr != nil {
+		slog.Error("database ping failed", slog.String("error", pingErr.Error()))
 		os.Exit(1)
 	}
 	slog.Info("connected to postgresql")
@@ -135,7 +136,6 @@ func main() {
 	r.Use(chimiddleware.RealIP)
 	r.Use(middleware.CORS(middleware.ParseOrigins(cfg.AllowedOrigins)))
 	r.Use(middleware.Metrics())
-	// r.Use(middleware.OpenAPIValidator(middleware.DefaultOpenAPIValidatorConfig()))
 
 	r.Get("/health", handler.Health)
 	r.Get("/health/ready", handler.Ready(db, rmq))
@@ -247,10 +247,11 @@ func ensureBotUser(authService *service.AuthService) string {
 
 	case errors.Is(err, domain.ErrUsernameExists):
 		slog.Info("bot user already exists, fetching")
-		botUser, err := authService.GetUserByUsername(ctx, "StockBot")
-		if err != nil {
+		botUser, fetchErr := authService.GetUserByUsername(ctx, "StockBot")
+		if fetchErr != nil {
 			slog.Error("bot user exists but cannot fetch",
-				slog.String("error", err.Error()))
+				slog.String("error", fetchErr.Error()))
+			//nolint:gocritic // Intentional exit before defer
 			os.Exit(1)
 		}
 		slog.Info("using existing bot user",
@@ -260,6 +261,7 @@ func ensureBotUser(authService *service.AuthService) string {
 
 	default:
 		slog.Error("failed to ensure bot user", slog.String("error", err.Error()))
+		//nolint:gocritic // Intentional exit before defer
 		os.Exit(1)
 	}
 

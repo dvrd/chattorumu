@@ -10,7 +10,7 @@ import (
 )
 
 func TestRateLimiter_BasicFunctionality(t *testing.T) {
-	rl := NewRateLimiter(context.Background(),2, 2) // 2 req/sec, burst 2
+	rl := NewRateLimiter(context.Background(), 2, 2) // 2 req/sec, burst 2
 	defer rl.Stop()
 
 	handler := rl.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +46,7 @@ func TestRateLimiter_BasicFunctionality(t *testing.T) {
 }
 
 func TestRateLimiter_PerIPLimiting(t *testing.T) {
-	rl := NewRateLimiter(context.Background(),1, 1) // 1 req/sec, burst 1
+	rl := NewRateLimiter(context.Background(), 1, 1) // 1 req/sec, burst 1
 	defer rl.Stop()
 
 	handler := rl.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +91,7 @@ func TestRateLimiter_PerIPLimiting(t *testing.T) {
 }
 
 func TestRateLimiter_CleanupMemoryLeak(t *testing.T) {
-	rl := NewRateLimiter(context.Background(),10, 1)
+	rl := NewRateLimiter(context.Background(), 10, 1)
 	defer rl.Stop()
 
 	// Create many limiters (more than we'd normally see)
@@ -134,7 +134,7 @@ func TestRateLimiter_CleanupMemoryLeak(t *testing.T) {
 }
 
 func TestRateLimiter_LRUEviction(t *testing.T) {
-	rl := NewRateLimiter(context.Background(),10, 1)
+	rl := NewRateLimiter(context.Background(), 10, 1)
 	defer rl.Stop()
 
 	// Create more limiters than maxLimiters (10000) would allow
@@ -161,7 +161,7 @@ func TestRateLimiter_LRUEviction(t *testing.T) {
 }
 
 func TestRateLimiter_ConcurrentAccess(t *testing.T) {
-	rl := NewRateLimiter(context.Background(),100, 10)
+	rl := NewRateLimiter(context.Background(), 100, 10)
 	defer rl.Stop()
 
 	handler := rl.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +200,7 @@ func TestRateLimiter_ConcurrentAccess(t *testing.T) {
 }
 
 func TestRateLimiter_CleanupLoop(t *testing.T) {
-	rl := NewRateLimiter(context.Background(),10, 1)
+	rl := NewRateLimiter(context.Background(), 10, 1)
 
 	// Create some limiters
 	for i := 0; i < 10; i++ {
@@ -224,14 +224,14 @@ func TestRateLimiter_CleanupLoop(t *testing.T) {
 
 	// Create a new limiter - cleanup goroutine should be stopped
 	// This verifies no goroutine leak
-	rl2 := NewRateLimiter(context.Background(),10, 1)
+	rl2 := NewRateLimiter(context.Background(), 10, 1)
 	defer rl2.Stop()
 
 	// If we got here without panic, the test passes
 }
 
 func TestRateLimiter_LastAccessUpdate(t *testing.T) {
-	rl := NewRateLimiter(context.Background(),10, 1)
+	rl := NewRateLimiter(context.Background(), 10, 1)
 	defer rl.Stop()
 
 	key := "192.168.1.1:1234"
@@ -260,7 +260,7 @@ func TestRateLimiter_LastAccessUpdate(t *testing.T) {
 }
 
 func TestRateLimiter_ContextCancellation(t *testing.T) {
-	rl := NewRateLimiter(context.Background(),10, 1)
+	rl := NewRateLimiter(context.Background(), 10, 1)
 
 	// Create cleanup context
 	ctx, cancel := context.WithCancel(context.Background())

@@ -150,12 +150,13 @@ func (h *ChatroomHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 
 	limit := defaultLimit
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil {
-			if parsedLimit < minLimit {
+		if parsedLimit, parseErr := strconv.Atoi(limitStr); parseErr == nil {
+			switch {
+			case parsedLimit < minLimit:
 				limit = minLimit
-			} else if parsedLimit > maxLimit {
+			case parsedLimit > maxLimit:
 				limit = maxLimit
-			} else {
+			default:
 				limit = parsedLimit
 			}
 		}

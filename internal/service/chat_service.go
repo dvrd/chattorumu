@@ -29,7 +29,7 @@ func (s *ChatService) SendMessage(ctx context.Context, msg *domain.Message) erro
 		}
 	}
 
-	if len(msg.Content) == 0 || len(msg.Content) > 1000 {
+	if msg.Content == "" || len(msg.Content) > 1000 {
 		return domain.ErrInvalidInput
 	}
 
@@ -43,7 +43,7 @@ func (s *ChatService) GetMessages(ctx context.Context, chatroomID string, limit 
 	return s.messageRepo.GetByChatroom(ctx, chatroomID, limit)
 }
 
-func (s *ChatService) GetMessagesBefore(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error) {
+func (s *ChatService) GetMessagesBefore(ctx context.Context, chatroomID, before string, limit int) ([]*domain.Message, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
@@ -51,7 +51,7 @@ func (s *ChatService) GetMessagesBefore(ctx context.Context, chatroomID string, 
 }
 
 func (s *ChatService) CreateChatroom(ctx context.Context, name, createdBy string) (*domain.Chatroom, error) {
-	if len(name) == 0 || len(name) > 100 {
+	if name == "" || len(name) > 100 {
 		return nil, domain.ErrInvalidInput
 	}
 

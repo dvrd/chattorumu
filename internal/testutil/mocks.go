@@ -419,7 +419,7 @@ func (m *MockMessageRepository) GetByChatroom(ctx context.Context, chatroomID st
 	return result, nil
 }
 
-func (m *MockMessageRepository) GetByChatroomBefore(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error) {
+func (m *MockMessageRepository) GetByChatroomBefore(ctx context.Context, chatroomID, before string, limit int) ([]*domain.Message, error) {
 	if m.GetByChatroomBeforeFunc != nil {
 		return m.GetByChatroomBeforeFunc(ctx, chatroomID, before, limit)
 	}

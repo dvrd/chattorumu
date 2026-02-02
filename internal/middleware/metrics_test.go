@@ -78,7 +78,7 @@ func TestMetrics_RecordsHTTPRequestDuration(t *testing.T) {
 			nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(tt.responseDelay)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte("test response"))
+				_, _ = w.Write([]byte("test response"))
 			})
 
 			middleware := Metrics()
@@ -142,7 +142,7 @@ func TestMetrics_RecordsHTTPRequestsTotal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.body))
+				_, _ = w.Write([]byte(tt.body))
 			})
 
 			middleware := Metrics()
@@ -162,7 +162,7 @@ func TestMetrics_RecordsHTTPRequestsTotal(t *testing.T) {
 func TestMetrics_DefaultStatusCodeIsOK(t *testing.T) {
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Don't explicitly write a status code - middleware should default to 200
-		w.Write([]byte("response"))
+		_, _ = w.Write([]byte("response"))
 	})
 
 	middleware := Metrics()
@@ -330,7 +330,7 @@ func TestMetrics_ChainedMiddleware(t *testing.T) {
 	// Test that metrics middleware works with nested middleware
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("final response"))
+		_, _ = w.Write([]byte("final response"))
 	})
 
 	// Chain multiple middleware
@@ -377,7 +377,7 @@ func TestMetrics_ResponseBodyWriting(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.responseBody))
+				_, _ = w.Write([]byte(tt.responseBody))
 			})
 
 			middleware := Metrics()
@@ -476,7 +476,7 @@ func TestMetrics_HTTPMethodVariations(t *testing.T) {
 			nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, method, r.Method)
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("ok"))
+				_, _ = w.Write([]byte("ok"))
 			})
 
 			middleware := Metrics()
@@ -512,7 +512,7 @@ func TestMetrics_StatusCodeVariations(t *testing.T) {
 			nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(code)
 				if code != http.StatusNoContent {
-					w.Write([]byte(fmt.Sprintf("status: %d", code)))
+					_, _ = w.Write([]byte(fmt.Sprintf("status: %d", code)))
 				}
 			})
 

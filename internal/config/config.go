@@ -60,12 +60,10 @@ func (c *Config) Validate() error {
 		if c.AllowedOrigins != "" {
 			log.Println("WARNING: Ensure ALLOWED_ORIGINS uses HTTPS in production")
 		}
-	} else {
+	} else if c.SessionSecret == "" {
 		// Development/staging: provide default if not set
-		if c.SessionSecret == "" {
-			c.SessionSecret = "dev-secret-not-for-production"
-			log.Println("Using default SESSION_SECRET for development")
-		}
+		c.SessionSecret = "dev-secret-not-for-production"
+		log.Println("Using default SESSION_SECRET for development")
 	}
 
 	return nil

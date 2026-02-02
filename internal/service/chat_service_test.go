@@ -11,9 +11,9 @@ import (
 
 // Mock repositories for testing
 type mockMessageRepository struct {
-	messages           []*domain.Message
-	create             func(ctx context.Context, message *domain.Message) error
-	getByChatroom      func(ctx context.Context, chatroomID string, limit int) ([]*domain.Message, error)
+	messages            []*domain.Message
+	create              func(ctx context.Context, message *domain.Message) error
+	getByChatroom       func(ctx context.Context, chatroomID string, limit int) ([]*domain.Message, error)
 	getByChatroomBefore func(ctx context.Context, chatroomID string, before string, limit int) ([]*domain.Message, error)
 }
 
@@ -648,8 +648,8 @@ func TestChatService_MultipleChatrooms(t *testing.T) {
 		Content:    "Message in Random",
 	}
 
-	chatService.SendMessage(ctx, msg1)
-	chatService.SendMessage(ctx, msg2)
+	_ = chatService.SendMessage(ctx, msg1)
+	_ = chatService.SendMessage(ctx, msg2)
 
 	// Get messages from each chatroom
 	messages1, _ := chatService.GetMessages(ctx, chatroom1.ID, 10)
@@ -687,7 +687,7 @@ func BenchmarkSendMessage(b *testing.B) {
 			Username:   "alice",
 			Content:    "Benchmark message",
 		}
-		chatService.SendMessage(ctx, msg)
+		_ = chatService.SendMessage(ctx, msg)
 	}
 }
 
@@ -708,6 +708,6 @@ func BenchmarkGetMessages(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		chatService.GetMessages(ctx, "chatroom1", 50)
+		_, _ = chatService.GetMessages(ctx, "chatroom1", 50)
 	}
 }

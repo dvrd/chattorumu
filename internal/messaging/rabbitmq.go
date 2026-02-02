@@ -14,7 +14,6 @@ import (
 type channelPool struct {
 	conn *amqp.Connection
 	pool *sync.Pool
-	mu   sync.Mutex
 }
 
 func newChannelPool(conn *amqp.Connection) *channelPool {
@@ -48,8 +47,8 @@ func (cp *channelPool) getChannel() (*amqp.Channel, error) {
 		return cp.newChannel()
 	}
 
-	ch := obj.(*amqp.Channel)
-	if ch.IsClosed() {
+	ch, ok := obj.(*amqp.Channel)
+	if !ok || ch == nil || ch.IsClosed() {
 		return cp.newChannel()
 	}
 
@@ -66,11 +65,10 @@ type RabbitMQ struct {
 	conn        *amqp.Connection
 	channel     *amqp.Channel
 	publishPool *channelPool
-	mu          sync.Mutex
 }
 
 type BotCommand struct {
-	Type        string `json:"type"`         // "stock" or "hello"
+	Type        string `json:"type"` // "stock" or "hello"
 	ChatroomID  string `json:"chatroom_id"`
 	StockCode   string `json:"stock_code,omitempty"`
 	RequestedBy string `json:"requested_by"`
@@ -114,6 +112,7 @@ func NewRabbitMQWithRetry(ctx context.Context, url string) (*RabbitMQ, error) {
 
 		lastErr = err
 		if attempt < maxRetries-1 {
+			//nolint:gosec // attempt is bounded by maxRetries
 			delay := baseDelay * time.Duration(1<<uint(attempt))
 			slog.Warn("rabbitmq connection failed, retrying",
 				slog.String("error", err.Error()),

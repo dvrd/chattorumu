@@ -111,8 +111,10 @@ func TestHealthCheckResult_JSON(t *testing.T) {
 				}
 				switch v := expected.(type) {
 				case string:
+					//nolint:errcheck
 					testutil.AssertEqual(t, got.(string), v)
 				case float64:
+					//nolint:errcheck
 					testutil.AssertEqual(t, got.(float64), v)
 				}
 			}

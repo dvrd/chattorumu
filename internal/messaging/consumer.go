@@ -39,14 +39,14 @@ func (c *ResponseConsumer) Start(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.rmq.channel.QueueBind(
+	if bindErr := c.rmq.channel.QueueBind(
 		queue.Name,       // queue name
 		"",               // routing key
 		"chat.responses", // exchange
 		false,
 		nil,
-	); err != nil {
-		return err
+	); bindErr != nil {
+		return bindErr
 	}
 
 	msgs, err := c.rmq.channel.Consume(
@@ -125,9 +125,9 @@ func (c *ResponseConsumer) processResponse(_ context.Context, response *StockRes
 	}
 
 	if data, err := json.Marshal(serverMsg); err == nil {
-		if err := c.hub.Broadcast(response.ChatroomID, data); err != nil {
+		if broadcastErr := c.hub.Broadcast(response.ChatroomID, data); broadcastErr != nil {
 			slog.Warn("failed to broadcast bot message",
-				slog.String("error", err.Error()),
+				slog.String("error", broadcastErr.Error()),
 				slog.String("chatroom_id", response.ChatroomID),
 				slog.String("symbol", response.Symbol))
 		} else {

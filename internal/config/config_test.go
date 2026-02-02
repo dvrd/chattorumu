@@ -218,7 +218,7 @@ func TestConfig_Validate_Staging(t *testing.T) {
 // Helper function
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && s[:len(substr)] == substr ||
-		   len(s) > len(substr) && containsHelper(s, substr)
+		len(s) > len(substr) && containsHelper(s, substr)
 }
 
 func containsHelper(s, substr string) bool {

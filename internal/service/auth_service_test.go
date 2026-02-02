@@ -550,7 +550,7 @@ func TestAuthService_SessionTokenUniqueness(t *testing.T) {
 	ctx := context.Background()
 
 	// Register a user
-	authService.Register(ctx, "alice", "alice@example.com", "password123")
+	_, _ = authService.Register(ctx, "alice", "alice@example.com", "password123")
 
 	// Create multiple sessions
 	session1, _, _ := authService.Login(ctx, "alice", "password123")
@@ -644,7 +644,7 @@ func BenchmarkRegister(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		username := "user" + string(rune(i))
-		authService.Register(ctx, username, username+"@example.com", "password123")
+		_, _ = authService.Register(ctx, username, username+"@example.com", "password123")
 	}
 }
 
@@ -655,10 +655,10 @@ func BenchmarkLogin(b *testing.B) {
 	ctx := context.Background()
 
 	// Register a user
-	authService.Register(ctx, "alice", "alice@example.com", "password123")
+	_, _ = authService.Register(ctx, "alice", "alice@example.com", "password123")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		authService.Login(ctx, "alice", "password123")
+		_, _, _ = authService.Login(ctx, "alice", "password123")
 	}
 }

@@ -37,6 +37,7 @@ func main() {
 	rmq, err := messaging.NewRabbitMQWithRetry(rmqCtx, cfg.RabbitMQURL)
 	if err != nil {
 		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
+		//nolint:gocritic // Intentional exit before defer
 		os.Exit(1)
 	}
 	defer rmq.Close()
@@ -73,7 +74,7 @@ func main() {
 					slog.Error("error processing command", slog.String("error", err.Error()))
 				}
 				msgCancel()
-				msg.Ack(false)
+				_ = msg.Ack(false)
 			}
 		}
 	}()

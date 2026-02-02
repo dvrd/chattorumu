@@ -110,7 +110,7 @@ func TestHub_GracefulShutdown(t *testing.T) {
 
 	// Give registration time to process and drain any initial count updates
 	time.Sleep(100 * time.Millisecond)
-	drainCountUpdates(mockClient.send, 100*time.Millisecond)
+	_, _ = drainCountUpdates(mockClient.send, 100*time.Millisecond)
 
 	// Cancel context to trigger shutdown
 	cancel()
@@ -199,13 +199,13 @@ func TestHub_UnregisterClient(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Drain any count updates from registration
-	drainCountUpdates(mockClient.send, 50*time.Millisecond)
+	_, _ = drainCountUpdates(mockClient.send, 50*time.Millisecond)
 
 	hub.Unregister(mockClient)
 	time.Sleep(100 * time.Millisecond)
 
 	// Drain remaining count updates from unregister with timeout
-	drainCountUpdates(mockClient.send, 100*time.Millisecond)
+	_, _ = drainCountUpdates(mockClient.send, 100*time.Millisecond)
 
 	// Attempt broadcast - client should not receive since unregistered
 	if err := hub.Broadcast("test-room", []byte("test after unregister")); err != nil {
@@ -381,9 +381,7 @@ func TestHub_ShutdownWithMultipleClients(t *testing.T) {
 	for i, client := range clients {
 		select {
 		case _, ok := <-client.send:
-			if ok {
-				// Channel still open is acceptable if shutdown is still processing
-			}
+			_ = ok // Channel state check during shutdown
 		default:
 			// Channel not ready, which is fine
 		}
@@ -428,18 +426,23 @@ func TestHub_DoubleUnregister(t *testing.T) {
 }
 
 // Mock WebSocket connection for testing
+//
+//nolint:unused // Test helper
 type mockConn struct {
 	websocket.Conn
 }
 
+//nolint:unused // Test helper
 func (m *mockConn) Close() error {
 	return nil
 }
 
+//nolint:unused // Test helper
 func (m *mockConn) WriteMessage(messageType int, data []byte) error {
 	return nil
 }
 
+//nolint:unused // Test helper
 func (m *mockConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
@@ -448,7 +451,7 @@ func (m *mockConn) SetWriteDeadline(t time.Time) error {
 func TestHub_GetConnectedUserCount(t *testing.T) {
 	hub := NewHub()
 	ctx, cancel := context.WithCancel(context.Background())
-	go hub.Run(ctx)
+	go func() { _ = hub.Run(ctx) }()
 	defer func() {
 		cancel()
 		<-hub.done
@@ -503,7 +506,7 @@ func TestHub_GetConnectedUserCount(t *testing.T) {
 func TestHub_GetAllConnectedCounts(t *testing.T) {
 	hub := NewHub()
 	ctx, cancel := context.WithCancel(context.Background())
-	go hub.Run(ctx)
+	go func() { _ = hub.Run(ctx) }()
 	defer func() {
 		cancel()
 		<-hub.done

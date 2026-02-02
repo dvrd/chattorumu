@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"jobsity-chat/internal/messaging"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"jobsity-chat/internal/messaging"
 )
 
 // publishStockResponse publishes a StockResponse to RabbitMQ

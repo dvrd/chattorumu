@@ -143,9 +143,9 @@ func (c *Client) ReadPump() {
 		}
 
 		var clientMsg ClientMessage
-		if err := json.Unmarshal(message, &clientMsg); err != nil {
+		if unmarshalErr := json.Unmarshal(message, &clientMsg); unmarshalErr != nil {
 			slog.Warn("invalid message format",
-				slog.String("error", err.Error()),
+				slog.String("error", unmarshalErr.Error()),
 				slog.String("user", c.username))
 			continue
 		}
@@ -155,12 +155,12 @@ func (c *Client) ReadPump() {
 				ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
 				defer cancel()
 
-				var err error
+				var cmdErr error
 				switch cmd.Type {
 				case "stock":
-					err = c.publisher.PublishStockCommand(ctx, c.chatroomID, cmd.StockCode, c.username)
+					cmdErr = c.publisher.PublishStockCommand(ctx, c.chatroomID, cmd.StockCode, c.username)
 				case "hello":
-					err = c.publisher.PublishHelloCommand(ctx, c.chatroomID, c.username)
+					cmdErr = c.publisher.PublishHelloCommand(ctx, c.chatroomID, c.username)
 				default:
 					slog.Warn("unknown command type",
 						slog.String("type", cmd.Type),
@@ -168,9 +168,9 @@ func (c *Client) ReadPump() {
 					return
 				}
 
-				if err != nil {
+				if cmdErr != nil {
 					slog.Error("error publishing command",
-						slog.String("error", err.Error()),
+						slog.String("error", cmdErr.Error()),
 						slog.String("type", cmd.Type),
 						slog.String("user", c.username))
 
@@ -201,10 +201,10 @@ func (c *Client) ReadPump() {
 		}
 
 		ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
-		if err := c.chatService.SendMessage(ctx, msg); err != nil {
+		if sendErr := c.chatService.SendMessage(ctx, msg); sendErr != nil {
 			cancel()
 			slog.Error("error saving message",
-				slog.String("error", err.Error()),
+				slog.String("error", sendErr.Error()),
 				slog.String("user", c.username),
 				slog.String("chatroom_id", c.chatroomID))
 			continue
