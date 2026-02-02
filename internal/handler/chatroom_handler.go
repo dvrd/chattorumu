@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -87,7 +88,11 @@ func (h *ChatroomHandler) List(w http.ResponseWriter, r *http.Request) {
 	if nextCursor != "" {
 		responseData["next_cursor"] = nextCursor
 	}
-	json.NewEncoder(w).Encode(responseData)
+	if err := json.NewEncoder(w).Encode(responseData); err != nil {
+		slog.Error("failed to encode list chatrooms response", slog.String("error", err.Error()))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *ChatroomHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +116,11 @@ func (h *ChatroomHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(chatroom)
+	if err := json.NewEncoder(w).Encode(chatroom); err != nil {
+		slog.Error("failed to encode create chatroom response", slog.String("error", err.Error()))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *ChatroomHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
@@ -165,10 +174,13 @@ func (h *ChatroomHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	if err := json.NewEncoder(w).Encode(map[string]any{
 		"messages": messages,
-	})
+	}); err != nil {
+		slog.Error("failed to encode get messages response", slog.String("error", err.Error()))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *ChatroomHandler) Join(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +201,9 @@ func (h *ChatroomHandler) Join(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	if err := json.NewEncoder(w).Encode(map[string]bool{"success": true}); err != nil {
+		slog.Error("failed to encode join chatroom response", slog.String("error", err.Error()))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }

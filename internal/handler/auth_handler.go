@@ -90,7 +90,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		slog.Error("failed to encode register response", slog.String("error", err.Error()))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +118,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			slog.Error("login error", slog.String("error", err.Error()))
 		}
 
+		w.Header().Set("Content-Type", "application/json")
 		http.Error(w, `{"error":"`+message+`"}`, status)
 		return
 	}
@@ -188,5 +193,9 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	if err := json.NewEncoder(w).Encode(map[string]bool{"success": true}); err != nil {
+		slog.Error("failed to encode logout response", slog.String("error", err.Error()))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
