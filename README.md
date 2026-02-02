@@ -43,10 +43,10 @@ scoop install task
 
 ```bash
 # Start all services
-docker-compose -f containers/docker-compose.yml up -d
+task docker:run
 
 # Run database migrations
-task migrate-up
+task docker:migrate:up
 
 # Access the application
 # Chat: http://localhost:8080
@@ -57,19 +57,35 @@ task migrate-up
 
 ```bash
 # Install dependencies
-task deps
+task init
+brew install rabbitmq
+brew services start rabbitmq
+
+# Setup database
+
+psql -U postgres
+
+# CREATE USER jobsity WITH PASSWORD 'jobsity123';
+# CREATE DATABASE jobsity_chat;
+# GRANT ALL PRIVILEGES ON DATABASE jobsity_chat TO jobsity;
+
+psql -U postgres -d jobsity_chat
+
+# GRANT ALL ON SCHEMA public TO jobsity;
+# GRANT CREATE ON SCHEMA public TO jobsity;
+# ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO jobsity;
 
 # Run chat server
-task run-server
+task run:server
 
 # Run stock bot (in another terminal)
-task run-bot
+task run:bot
 
 # Run tests
-task test
+task tests
 
 # Run integration tests
-task test-integration
+task tests:integration
 ```
 
 ## Environment Variables
