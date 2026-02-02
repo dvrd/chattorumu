@@ -7,9 +7,11 @@
 package e2e
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -129,6 +131,27 @@ func setupTestEnvironment(ctx context.Context) (func(), error) {
 	return cleanup, nil
 }
 
+// streamContainerLogs starts a goroutine that streams container logs to stdout with a prefix
+func streamContainerLogs(ctx context.Context, container testcontainers.Container, prefix string) {
+	go func() {
+		reader, err := container.Logs(ctx)
+		if err != nil {
+			log.Printf("[%s] failed to get logs: %v", prefix, err)
+			return
+		}
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			log.Printf("[%s] %s", prefix, scanner.Text())
+		}
+
+		if err := scanner.Err(); err != nil && err != io.EOF {
+			log.Printf("[%s] log reader error: %v", prefix, err)
+		}
+	}()
+}
+
 // startPostgres starts a PostgreSQL container for testing
 func startPostgres(ctx context.Context) (testcontainers.Container, func(), string, error) {
 	req := testcontainers.ContainerRequest{
@@ -152,6 +175,9 @@ func startPostgres(ctx context.Context) (testcontainers.Container, func(), strin
 	if err != nil {
 		return nil, nil, "", err
 	}
+
+	// Stream container logs
+	streamContainerLogs(ctx, container, "PostgreSQL")
 
 	host, err := container.Host(ctx)
 	if err != nil {
@@ -199,6 +225,9 @@ func startRabbitMQ(ctx context.Context) (testcontainers.Container, func(), strin
 	if err != nil {
 		return nil, nil, "", err
 	}
+
+	// Stream container logs
+	streamContainerLogs(ctx, container, "RabbitMQ")
 
 	host, err := container.Host(ctx)
 	if err != nil {
