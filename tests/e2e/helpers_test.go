@@ -306,7 +306,11 @@ type WSMessage struct {
 	UserID     string         `json:"user_id,omitempty"`
 	ChatroomID string         `json:"chatroom_id,omitempty"`
 	MessageID  string         `json:"message_id,omitempty"`
+	ID         string         `json:"id,omitempty"`
+	IsBot      bool           `json:"is_bot,omitempty"`
+	IsError    bool           `json:"is_error,omitempty"`
 	Timestamp  string         `json:"timestamp,omitempty"`
+	CreatedAt  *time.Time     `json:"created_at,omitempty"`
 	UserCounts map[string]int `json:"user_counts,omitempty"`
 	Error      string         `json:"error,omitempty"`
 }
@@ -499,3 +503,63 @@ func assertEqual[T comparable](t *testing.T, got, want T, msg string) {
 		t.Errorf("%s: got %v, want %v", msg, got, want)
 	}
 }
+
+// createTestUser creates a test user and returns user ID
+func createTestUser(t *testing.T) *RegisterResponse {
+	t.Helper()
+
+	client := NewTestClient(t)
+	username := uniqueUsername("msgtest")
+	email := uniqueEmail("msgtest")
+
+	user, err := client.RegisterUser(username, email, "password123")
+	if err != nil {
+		t.Fatalf("failed to register user: %v", err)
+	}
+
+	_, err = client.LoginUser(username, "password123")
+	if err != nil {
+		t.Fatalf("failed to login user: %v", err)
+	}
+
+	// Update testClient with session token for later use
+	return user
+}
+
+// createTestChatroom creates a chatroom for testing
+func createTestChatroom(t *testing.T, userID string) *ChatroomResponse {
+	t.Helper()
+
+	client := setupTestUser(t, "chatroomtest")
+
+	chatroom, err := client.CreateChatroom(fmt.Sprintf("msgtest_room_%d", time.Now().UnixNano()))
+	if err != nil {
+		t.Fatalf("failed to create chatroom: %v", err)
+	}
+
+	return chatroom
+}
+
+// newTestWSClient creates a WebSocket client for a user in a chatroom
+func newTestWSClient(t *testing.T, user *RegisterResponse, chatroomID string) (*WSClient, error) {
+	t.Helper()
+
+	client := setupTestUser(t, "wstest")
+
+	// Join the chatroom
+	err := client.JoinChatroom(chatroomID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to join chatroom: %w", err)
+	}
+
+	// Connect WebSocket
+	ws, err := client.ConnectWebSocket(chatroomID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect WebSocket: %w", err)
+	}
+
+	return ws, nil
+}
+
+// TestWSClient is an alias for WSClient for compatibility
+type TestWSClient = WSClient
