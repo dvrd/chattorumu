@@ -22,6 +22,7 @@ import (
 
 // TestUserRepository_Integration tests the UserRepository with a real PostgreSQL database
 func TestUserRepository_Integration(t *testing.T) {
+	t.Parallel()
 	repo, err := postgres.NewUserRepository(testDB)
 	require.NoError(t, err, "failed to create user repository")
 
@@ -138,6 +139,7 @@ func TestUserRepository_Integration(t *testing.T) {
 
 // TestSessionRepository_Integration tests the SessionRepository with a real PostgreSQL database
 func TestSessionRepository_Integration(t *testing.T) {
+	t.Parallel()
 	userRepo, err := postgres.NewUserRepository(testDB)
 	require.NoError(t, err, "failed to create user repository")
 	sessionRepo, err := postgres.NewSessionRepository(testDB)
@@ -232,6 +234,7 @@ func TestSessionRepository_Integration(t *testing.T) {
 
 // TestChatroomRepository_Integration tests the ChatroomRepository with a real PostgreSQL database
 func TestChatroomRepository_Integration(t *testing.T) {
+	t.Parallel()
 	userRepo, err := postgres.NewUserRepository(testDB)
 	require.NoError(t, err, "failed to create user repository")
 	chatroomRepo, err := postgres.NewChatroomRepository(testDB)
@@ -328,6 +331,7 @@ func TestChatroomRepository_Integration(t *testing.T) {
 
 // TestMessageRepository_Integration tests the MessageRepository with a real PostgreSQL database
 func TestMessageRepository_Integration(t *testing.T) {
+	t.Parallel()
 	userRepo, err := postgres.NewUserRepository(testDB)
 	require.NoError(t, err, "failed to create user repository")
 	chatroomRepo, err := postgres.NewChatroomRepository(testDB)

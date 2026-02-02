@@ -29,12 +29,14 @@ func publishStockResponse(t *testing.T, resp *messaging.StockResponse) {
 
 // TestMessaging_RabbitMQConnection verifies RabbitMQ is connected
 func TestMessaging_RabbitMQConnection(t *testing.T) {
+	t.Parallel()
 	// Verify RabbitMQ is connected
 	assert.False(t, rmq.IsClosed(), "RabbitMQ should be connected")
 }
 
 // TestMessaging_PublishStockCommand verifies publishing stock commands
 func TestMessaging_PublishStockCommand(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -44,6 +46,7 @@ func TestMessaging_PublishStockCommand(t *testing.T) {
 
 // TestMessaging_PublishHelloCommand verifies publishing hello commands
 func TestMessaging_PublishHelloCommand(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -55,6 +58,7 @@ func TestMessaging_PublishHelloCommand(t *testing.T) {
 
 // TestMessaging_ResponseConsumer_ReceivesAndBroadcasts tests response receiving and broadcasting
 func TestMessaging_ResponseConsumer_ReceivesAndBroadcasts(t *testing.T) {
+	t.Parallel()
 	// Create a test user and chatroom
 	testChatroom := createTestChatroom(t, "")
 
@@ -88,6 +92,7 @@ func TestMessaging_ResponseConsumer_ReceivesAndBroadcasts(t *testing.T) {
 
 // TestMessaging_ResponseConsumer_BroadcastsToMultipleClients tests broadcasting to multiple clients
 func TestMessaging_ResponseConsumer_BroadcastsToMultipleClients(t *testing.T) {
+	t.Parallel()
 	// Create test chatroom
 	testChatroom := createTestChatroom(t, "")
 
@@ -124,6 +129,7 @@ func TestMessaging_ResponseConsumer_BroadcastsToMultipleClients(t *testing.T) {
 
 // TestMessaging_ResponseConsumer_HandlesErrorResponses tests handling of error responses
 func TestMessaging_ResponseConsumer_HandlesErrorResponses(t *testing.T) {
+	t.Parallel()
 	// Create test chatroom
 	testChatroom := createTestChatroom(t, "")
 
@@ -156,6 +162,7 @@ func TestMessaging_ResponseConsumer_HandlesErrorResponses(t *testing.T) {
 
 // TestMessaging_Publish_ContextTimeout tests that publish completes reasonably quickly
 func TestMessaging_Publish_ContextTimeout(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -169,6 +176,7 @@ func TestMessaging_Publish_ContextTimeout(t *testing.T) {
 
 // TestMessaging_Consumer_MalformedMessage tests consumer robustness with malformed messages
 func TestMessaging_Consumer_MalformedMessage(t *testing.T) {
+	t.Parallel()
 	// This test verifies that consumer doesn't crash with malformed messages
 	// by sending a valid message after potential malformed data
 
@@ -198,6 +206,7 @@ func TestMessaging_Consumer_MalformedMessage(t *testing.T) {
 
 // TestMessaging_Consumer_MessageMissingRequiredFields tests handling of incomplete messages
 func TestMessaging_Consumer_MessageMissingRequiredFields(t *testing.T) {
+	t.Parallel()
 	// Message with empty ChatroomID - should be handled gracefully
 	resp := &messaging.StockResponse{
 		ChatroomID:       "", // Empty
@@ -237,6 +246,7 @@ func TestMessaging_Consumer_MessageMissingRequiredFields(t *testing.T) {
 
 // TestMessaging_ResponseJSONMarshal tests that responses are properly marshaled
 func TestMessaging_ResponseJSONMarshal(t *testing.T) {
+	t.Parallel()
 	resp := &messaging.StockResponse{
 		ChatroomID:       "test-id",
 		Symbol:           "TSLA",
@@ -261,6 +271,7 @@ func TestMessaging_ResponseJSONMarshal(t *testing.T) {
 
 // TestMessaging_BotCommandPublish tests publishing of bot commands
 func TestMessaging_BotCommandPublish(t *testing.T) {
+	t.Parallel()
 	cmd := &messaging.BotCommand{
 		Type:        "stock",
 		ChatroomID:  "test-chatroom",
