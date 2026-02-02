@@ -13,6 +13,7 @@ tasks:
 
   build:
     desc: Build the applications
+    silent: true
     cmds:
       - echo "Building chat-server..."
       - go build -o bin/chat-server ./cmd/chat-server
@@ -23,12 +24,14 @@ tasks:
   run:server:
     desc: Run the chat server
     cmds:
-      - go run ./cmd/chat-server
+      - mkdir -p bin
+      - go run ./cmd/chat-server -o ./bin/chat-server
 
   run:bot:
     desc: Run the stock bot
     cmds:
-      - go run ./cmd/stock-bot
+      - mkdir -p bin
+      - go run ./cmd/stock-bot -o ./bin/stock-bot
 
   tests:
     desc: Run all tests (unit + integration + e2e)
@@ -36,88 +39,30 @@ tasks:
 
   test:unit:
     desc: Run unit tests with coverage
-    vars:
-      COVER_PKGS: >-
-        jobsity-chat/internal/config,
-        jobsity-chat/internal/domain,
-        jobsity-chat/internal/handler,
-        jobsity-chat/internal/messaging,
-        jobsity-chat/internal/middleware,
-        jobsity-chat/internal/observability,
-        jobsity-chat/internal/repository/postgres,
-        jobsity-chat/internal/service,
-        jobsity-chat/internal/stock,
-        jobsity-chat/internal/websocket
+    silent: true
     cmds:
       - echo "🧪 Running unit tests..."
-      - go test -race -coverprofile=coverage-unit.out -coverpkg={{.COVER_PKGS | replace "\n" "" | replace " " ""}} ./internal/...
-      - go tool cover -html=coverage-unit.out -o coverage-unit.html
-      - echo "✅ Unit tests complete - coverage-unit.html generated"
-
-  test:integration:
-    desc: Run integration tests (requires Docker)
-    cmds:
-      - echo "🔌 Running integration tests..."
-      - echo "⚠️  Ensure Docker daemon is running (docker info)"
-      - echo "📦 First run will download PostgreSQL (~100MB)"
-      - echo ""
-      - go test -race -tags=integration -coverprofile=coverage-integration.out -coverpkg=jobsity-chat/internal/repository/postgres -timeout 5m ./internal/repository/postgres/...
-      - go tool cover -html=coverage-integration.out -o coverage-integration.html
-      - echo "✅ Integration tests complete - coverage-integration.html generated"
+      - mkdir -p coverage
+      - go test -race -coverprofile=coverage/unit.out ./internal/...
+      - go tool cover -html=coverage/unit.out -o coverage/unit.html
+      - echo "✅ Unit tests complete - coverage/unit.html generated"
 
   test:e2e:
     desc: Run all E2E tests (requires Docker)
-    vars:
-      COVER_PKGS: >-
-        jobsity-chat/internal/config,
-        jobsity-chat/internal/domain,
-        jobsity-chat/internal/handler,
-        jobsity-chat/internal/messaging,
-        jobsity-chat/internal/middleware,
-        jobsity-chat/internal/observability,
-        jobsity-chat/internal/repository/postgres,
-        jobsity-chat/internal/service,
-        jobsity-chat/internal/stock,
-        jobsity-chat/internal/websocket
+    silent: true    
     cmds:
       - echo "🐳 Running E2E tests..."
       - echo "⚠️  Ensure Docker daemon is running (docker info)"
       - echo "📦 First run will download PostgreSQL (~100MB) and RabbitMQ (~50MB)"
-      - echo ""
-      - go test -race -tags=e2e -coverprofile=coverage-e2e.out -coverpkg={{.COVER_PKGS | replace "\n" "" | replace " " ""}} -timeout 10m ./tests/e2e/...
-      - go tool cover -html=coverage-e2e.out -o coverage-e2e.html
-      - echo "✅ E2E tests complete - coverage-e2e.html generated"
-
-  test:all:
-    desc: Run all tests and merge coverage
-    cmds:
-      - echo "🧪 Running all tests..."
-      - task test:unit
-      - task test:integration
-      - task test:e2e
-      - echo ""
-      - echo "📊 Merging coverage reports..."
-      - |
-        echo "mode: set" > coverage.out
-        tail -n +2 coverage-unit.out >> coverage.out 2>/dev/null || true
-        tail -n +2 coverage-integration.out >> coverage.out 2>/dev/null || true
-        tail -n +2 coverage-e2e.out >> coverage.out 2>/dev/null || true
-      - go tool cover -html=coverage.out -o coverage.html
-      - echo "✅ All tests complete - coverage.html generated"
+      - go test -race -tags=e2e -timeout 10m ./tests/e2e/...
+      - echo "✅ E2E tests complete"
 
   coverage:
     desc: Show coverage report in terminal
     deps: [test:unit]
     silent: true
     cmds:
-      - go tool cover -func=coverage-unit.out
-
-  coverage:all:
-    desc: Show combined coverage report in terminal
-    deps: [test:all]
-    silent: true
-    cmds:
-      - go tool cover -func=coverage.out
+      - go tool cover -func=coverage/unit.out
 
   lint:
     desc: Run linters
@@ -167,21 +112,21 @@ tasks:
       - docker-compose -f {{.DOCKER_COMPOSE_FILE}} down -v
       - echo "Docker containers and volumes removed"
 
-  migrate:up:
+  docker:migrate:up:
     desc: Run database migrations up
     cmds:
       - echo "Running migrations..."
       - docker run --rm -v {{.PWD}}/migrations:/migrations --network host migrate/migrate:v4.17.0 -path=/migrations -database "{{.DATABASE_URL}}" up
       - echo "Migrations complete!"
 
-  migrate:down:
+  docker:migrate:down:
     desc: Rollback last migration
     cmds:
       - echo "Rolling back migration..."
       - docker run --rm -v {{.PWD}}/migrations:/migrations --network host migrate/migrate:v4.17.0 -path=/migrations -database "{{.DATABASE_URL}}" down 1
       - echo "Rollback complete!"
 
-  migrate:create:
+  docker:migrate:create:
     desc: Create new migration
     summary: |
       Create a new migration file
@@ -191,7 +136,7 @@ tasks:
       - docker run --rm -v {{.PWD}}/migrations:/migrations migrate/migrate:v4.17.0 create -ext sql -dir /migrations -seq {{.NAME}}
       - echo "Migration files created in migrations/"
 
-  migrate:force:
+  docker:migrate:force:
     desc: Force migration version
     summary: |
       Force the database to a specific migration version
@@ -201,7 +146,7 @@ tasks:
       - docker run --rm -v {{.PWD}}/migrations:/migrations --network host migrate/migrate:v4.17.0 -path=/migrations -database "{{.DATABASE_URL}}" force {{.VERSION}}
       - echo "Migration forced to version {{.VERSION}}!"
 
-  migrate:status:
+  docker:migrate:status:
     desc: Check migration status
     cmds:
       - echo "Checking migration status..."
@@ -220,18 +165,14 @@ tasks:
     cmds:
       - echo "Installing tools..."
       - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-      - go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+      - go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
       - echo "Tools installed!"
 
   clean:
     desc: Clean build artifacts
     cmds:
       - echo "Cleaning..."
-      - rm -rf bin/
-      - rm -f coverage.out coverage.html
-      - rm -f coverage-unit.out coverage-unit.html
-      - rm -f coverage-integration.out coverage-integration.html
-      - rm -f coverage-e2e.out coverage-e2e.html
+      - rm -rf bin/ coverage/
       - echo "Clean complete!"
 
   dev:
