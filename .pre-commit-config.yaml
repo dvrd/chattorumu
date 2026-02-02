@@ -1,0 +1,87 @@
+# Pre-commit hooks configuration for automated code quality checks
+# Install with: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+default_stages: [commit]
+fail_fast: false
+
+repos:
+  # Common file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Detects and fixes trailing whitespace
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        types: [text]
+        exclude: \.md$
+
+      # Ensures files end with a newline
+      - id: end-of-file-fixer
+        name: Fix end of file
+        types: [text]
+
+      # Validates YAML syntax
+      - id: check-yaml
+        name: Check YAML syntax
+        args: [--unsafe]
+
+      # Prevents committing large files
+      - id: check-added-large-files
+        name: Check for large files
+        args: [--maxkb=500]
+
+      # Detects merge conflict markers
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+        types: [text]
+
+      # Detects private keys and other secrets
+      - id: detect-private-key
+        name: Detect private keys
+        types: [text]
+
+      # Ensures JSON files are valid
+      - id: check-json
+        name: Check JSON validity
+
+  # Go code formatting and quality
+  - repo: local
+    hooks:
+      # Format Go code with gofmt (simplified syntax)
+      - id: go-fmt
+        name: Format code with gofmt
+        entry: bash -c 'gofmt -s -w "$@"' --
+        language: system
+        types: [go]
+        pass_filenames: true
+        stages: [commit]
+
+      # Organize and format imports
+      - id: go-imports
+        name: Organize imports with goimports
+        entry: bash -c 'goimports -w "$@"' --
+        language: system
+        types: [go]
+        pass_filenames: true
+        stages: [commit]
+
+      # Run go vet for static analysis
+      - id: go-vet
+        name: Analyze code with go vet
+        entry: go vet ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [commit]
+        always_run: true
+
+      # Run golangci-lint for comprehensive linting
+      - id: golangci-lint
+        name: Lint with golangci-lint
+        entry: golangci-lint run
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [commit]
+        require_serial: true

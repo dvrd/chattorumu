@@ -1,0 +1,90 @@
+run:
+  timeout: 5m
+  tests: true
+  build-tags: []
+  skip-dirs: []
+  skip-files: []
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - golint
+    - goimports
+    - ineffassign
+    - gosec
+    - gocritic
+    - misspell
+    - nakedret
+    - stylecheck
+    - unconvert
+    - unparam
+    - unused
+  disable:
+    - exhaustivestruct
+    - gomnd
+    - goconst
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+
+  golint:
+    min-confidence: 0.8
+
+  gosec:
+    severity: medium
+
+  gocritic:
+    enabled-checks:
+      - boolExprSimplify
+      - captLocal
+      - codegenComment
+      - commentedOutCode
+      - deprecatedComment
+      - dupBranchBody
+      - dupCase
+      - dupSubExpr
+      - emptyFallthrough
+      - emptyStringTest
+      - equalFold
+      - exitAfterDefer
+      - flagDeref
+      - flagName
+      - ifElseChain
+      - mapKey
+      - nilValReturn
+      - offBy1
+      - paramTypeCombine
+      - sloppyLen
+      - sloppyReassign
+      - stringsCompare
+      - switchTrue
+      - typeAssertChain
+      - typeSwitchVar
+      - underef
+      - unnecessaryBlock
+      - unslice
+      - valSwap
+      - wrapperFunc
+      - yodaStyleExpr
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - gocritic
+        - unparam
+    - path: cmd/.*
+      linters:
+        - golint
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
