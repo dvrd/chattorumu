@@ -41,11 +41,9 @@ tasks:
     desc: Run unit tests (parallelized)
     silent: true
     cmds:
-      - echo "🧪 Running unit tests (parallel)..."
-      - mkdir -p coverage
-      - go test -race -parallel 4 -coverprofile=coverage/unit.out ./internal/...
-      - go tool cover -html=coverage/unit.out -o coverage/unit.html
-      - echo "✅ Unit tests complete - coverage/unit.html generated"
+      - echo "🧪 Running unit tests"
+      - go test -race -parallel 4 ./internal/...
+      - echo "✅ Unit tests complete"
 
   test:e2e:
     desc: Run all E2E tests with parallelization (requires Docker)
@@ -62,6 +60,7 @@ tasks:
     deps: [test:unit]
     silent: true
     cmds:
+      - mkdir -p coverage
       - go tool cover -func=coverage/unit.out
 
   lint:

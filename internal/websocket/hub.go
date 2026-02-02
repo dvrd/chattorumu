@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"jobsity-chat/internal/observability"
 )
@@ -44,8 +45,13 @@ type Hub struct {
 	// Buffer of 10 prevents blocking on rapid connect/disconnect.
 	userCountUpdate chan struct{}
 
-	// done signals hub shutdown completion.
+	// done signals hub shutdown initiation.
+	// Checked by Broadcast() to prevent new messages during shutdown.
 	done chan struct{}
+
+	// pendingBroadcasts tracks background broadcast goroutines.
+	// Used to ensure graceful shutdown waits for all broadcasts to complete.
+	pendingBroadcasts sync.WaitGroup
 }
 
 // NewHub creates a new Hub instance.
@@ -156,8 +162,32 @@ func (h *Hub) unregisterClient(client *Client) {
 }
 
 func (h *Hub) shutdown() {
+	// Signal all goroutines that shutdown is in progress
 	close(h.done)
+	slog.Info("hub shutdown initiated, waiting for pending broadcasts")
 
+	// Wait for all pending background broadcast goroutines to complete
+	// with a timeout to avoid hanging forever
+	done := make(chan struct{})
+	go func() {
+		h.pendingBroadcasts.Wait()
+		close(done)
+	}()
+
+	shutdownTimeout := 5 * time.Second
+	select {
+	case <-done:
+		slog.Info("all pending broadcasts completed gracefully")
+	case <-time.After(shutdownTimeout):
+		slog.Warn("timeout waiting for pending broadcasts",
+			slog.Duration("timeout", shutdownTimeout))
+	}
+
+	// Close the broadcast channel to prevent new sends
+	// Any goroutines still trying to send will get an error
+	close(h.broadcast)
+
+	// Now safe to clean up clients
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -175,15 +205,25 @@ func (h *Hub) shutdown() {
 
 // Broadcast sends a message to all clients in a chatroom.
 // It uses a non-blocking send to avoid blocking the caller if the broadcast queue is full.
-// If the queue is full, the message is dropped and an error is returned.
-// Callers should log the error and notify the client if necessary.
+// Returns an error if the queue is full or if the hub is shutting down.
+// Callers should log the error appropriately.
 func (h *Hub) Broadcast(chatroomID string, message []byte) error {
+	select {
+	case <-h.done:
+		// Hub is shutting down, reject new broadcasts
+		return fmt.Errorf("hub is shutting down")
+	default:
+	}
+
 	select {
 	case h.broadcast <- &BroadcastMessage{
 		ChatroomID: chatroomID,
 		Message:    message,
 	}:
 		return nil
+	case <-h.done:
+		// Race: hub shutdown occurred between our first check and the send attempt
+		return fmt.Errorf("hub is shutting down")
 	default:
 		// Queue is full, cannot broadcast without blocking
 		return fmt.Errorf("broadcast queue full for chatroom %q", chatroomID)
