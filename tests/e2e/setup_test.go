@@ -31,14 +31,16 @@ import (
 )
 
 var (
-	testServer  *http.Server
-	testHub     *websocket.Hub
-	testDB      *sql.DB
-	baseURL     string
-	wsURL       string
-	testClient  *http.Client
-	testContext context.Context
-	cancelFunc  context.CancelFunc
+	testServer       *http.Server
+	testHub          *websocket.Hub
+	testDB           *sql.DB
+	rmq              *messaging.RabbitMQ
+	responseConsumer *messaging.ResponseConsumer
+	baseURL          string
+	wsURL            string
+	testClient       *http.Client
+	testContext      context.Context
+	cancelFunc       context.CancelFunc
 )
 
 // TestMain sets up the E2E test environment
@@ -97,12 +99,13 @@ func setupTestEnvironment(ctx context.Context) (func(), error) {
 
 	// Connect to RabbitMQ with timeout
 	rmqCtx, rmqCancel := context.WithTimeout(ctx, 30*time.Second)
-	rmq, err := messaging.NewRabbitMQWithRetry(rmqCtx, rmqURL)
+	rmq, err = messaging.NewRabbitMQWithRetry(rmqCtx, rmqURL)
 	rmqCancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
 	cleanups = append(cleanups, func() { rmq.Close() })
+	// rmq is now available as global variable for tests
 
 	// Setup chat server
 	serverCleanup, err := setupChatServer(testDB, rmq)
@@ -301,6 +304,14 @@ func setupChatServer(db *sql.DB, rmq *messaging.RabbitMQ) (func(), error) {
 	hubCtx, hubCancel := context.WithCancel(context.Background())
 	go testHub.Run(hubCtx)
 
+	// Create and start response consumer
+	responseConsumer = messaging.NewResponseConsumer(rmq, testHub, chatService, "test-bot-001")
+	consumerCtx, consumerCancel := context.WithCancel(context.Background())
+	err = responseConsumer.Start(consumerCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start response consumer: %w", err)
+	}
+
 	// Create handlers
 	authHandler := handler.NewAuthHandler(authService)
 	chatroomHandler := handler.NewChatroomHandler(chatService, testHub)
@@ -394,6 +405,7 @@ func setupChatServer(db *sql.DB, rmq *messaging.RabbitMQ) (func(), error) {
 	}
 
 	cleanup := func() {
+		consumerCancel()
 		hubCancel()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
